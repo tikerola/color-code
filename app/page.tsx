@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { ChordSheet } from "../components/ChordSheet";
+import { PianoNotesSection } from "../components/PianoNotesSection";
 import type { PreviewResponse } from "../lib/types";
 
 async function fetchPreview(url: string): Promise<PreviewResponse> {
@@ -113,6 +114,8 @@ export default function HomePage() {
             downloading={download.isPending}
           />
         )}
+
+        <PianoNotesSection />
       </div>
     </main>
   );

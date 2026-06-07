@@ -169,7 +169,7 @@ function pianoSvg(chord: string): string {
     const x = pad + i * wkW;
     svg += `<rect x="${x + 0.5}" y="${keyTop}" width="${wkW - 1}" height="${wkH}" fill="white" stroke="#bbb" stroke-width="0.8" rx="1"/>`;
     if (bassNotes.has(OCTAVE_WHITE[i])) {
-      svg += dotSvg(x + wkW / 2, keyTop + wkH - 7, wkW * 0.36, getNoteColor(OCTAVE_WHITE[i]));
+      svg += kuvionuottiSvg(x + wkW / 2, keyTop + wkH - 7, wkW * 0.36, OCTAVE_WHITE[i]);
     }
   }
 
@@ -178,7 +178,7 @@ function pianoSvg(chord: string): string {
     const x = pad + (7 + i) * wkW;
     svg += `<rect x="${x + 0.5}" y="${keyTop}" width="${wkW - 1}" height="${wkH}" fill="white" stroke="#bbb" stroke-width="0.8" rx="1"/>`;
     if (trebleNotes.has(OCTAVE_WHITE[i])) {
-      svg += dotSvg(x + wkW / 2, keyTop + wkH - 7, wkW * 0.36, getNoteColor(OCTAVE_WHITE[i]));
+      svg += kuvionuottiSvg(x + wkW / 2, keyTop + wkH - 7, wkW * 0.36, OCTAVE_WHITE[i], true);
     }
   }
 
@@ -193,7 +193,7 @@ function pianoSvg(chord: string): string {
     const x = pad + i * wkW + wkW - bkW / 2;
     svg += `<rect x="${x}" y="${keyTop}" width="${bkW}" height="${bkH}" fill="#222" stroke="#111" stroke-width="0.5" rx="1"/>`;
     if (bassNotes.has(sharp)) {
-      svg += dotSvg(x + bkW / 2, keyTop + bkH - 5, bkW * 0.36, getNoteColor(sharp), true);
+      svg += kuvionuottiSvg(x + bkW / 2, keyTop + bkH - 5, bkW * 0.36, sharp);
     }
   }
 
@@ -204,7 +204,7 @@ function pianoSvg(chord: string): string {
     const x = pad + (7 + i) * wkW + wkW - bkW / 2;
     svg += `<rect x="${x}" y="${keyTop}" width="${bkW}" height="${bkH}" fill="#222" stroke="#111" stroke-width="0.5" rx="1"/>`;
     if (trebleNotes.has(sharp)) {
-      svg += dotSvg(x + bkW / 2, keyTop + bkH - 5, bkW * 0.36, getNoteColor(sharp), true);
+      svg += kuvionuottiSvg(x + bkW / 2, keyTop + bkH - 5, bkW * 0.36, sharp, true);
     }
   }
 
@@ -212,9 +212,15 @@ function pianoSvg(chord: string): string {
   return svg;
 }
 
-function dotSvg(cx: number, cy: number, r: number, fill: string, onBlackKey = false): string {
-  const stroke = onBlackKey ? "white" : "white";
-  return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="1"/>`;
+// Shape encodes the octave (official kuvionuotti): lower octave = circle, upper octave = triangle up.
+// Color encodes the note letter.
+function kuvionuottiSvg(cx: number, cy: number, r: number, note: string, treble = false): string {
+  const color = getNoteColor(note);
+  const s = `stroke="white" stroke-width="0.8"`;
+  if (treble) {
+    return `<polygon points="${cx},${cy - r} ${cx + r * 1.2},${cy + r} ${cx - r * 1.2},${cy + r}" fill="${color}" ${s}/>`;
+  }
+  return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}" ${s}/>`;
 }
 
 function chordToNotes(chord: string): string[] {
