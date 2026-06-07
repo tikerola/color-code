@@ -49,3 +49,9 @@ export interface ApiError {
   code: string;
   message: string;
 }
+
+export type PianoNoteItem      = { kind: "note";      letter: string; octave: number };
+export type PianoBarlineItem   = { kind: "barline" };
+export type PianoRepeatItem    = { kind: "repeat";    count: number };
+export type PianoLineBreakItem = { kind: "linebreak" };
+export type PianoSeqItem       = PianoNoteItem | PianoBarlineItem | PianoRepeatItem | PianoLineBreakItem;

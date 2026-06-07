@@ -2,8 +2,9 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { ChordSheet } from "../components/ChordSheet";
+import { ManualChordsSection } from "../components/ManualChordsSection";
 import { PianoNotesSection } from "../components/PianoNotesSection";
-import type { PreviewResponse } from "../lib/types";
+import type { PreviewResponse, PianoSeqItem } from "../lib/types";
 
 async function fetchPreview(url: string): Promise<PreviewResponse> {
   const res = await fetch("/api/preview", {
@@ -18,11 +19,11 @@ async function fetchPreview(url: string): Promise<PreviewResponse> {
   return res.json();
 }
 
-async function downloadPdf(url: string, title: string, transpose: number): Promise<void> {
+async function downloadPdf(url: string, title: string, transpose: number, pianoNotes: PianoSeqItem[]): Promise<void> {
   const res = await fetch("/api/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url, transpose }),
+    body: JSON.stringify({ url, transpose, pianoNotes }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -37,8 +38,9 @@ async function downloadPdf(url: string, title: string, transpose: number): Promi
 }
 
 export default function HomePage() {
-  const [inputUrl, setInputUrl] = useState("");
+  const [inputUrl, setInputUrl]       = useState("");
   const [submittedUrl, setSubmittedUrl] = useState("");
+  const [pianoNotes, setPianoNotes]   = useState<PianoSeqItem[]>([]);
 
   const preview = useMutation({
     mutationFn: (url: string) => fetchPreview(url),
@@ -46,7 +48,7 @@ export default function HomePage() {
 
   const download = useMutation({
     mutationFn: ({ url, title, transpose }: { url: string; title: string; transpose: number }) =>
-      downloadPdf(url, title, transpose),
+      downloadPdf(url, title, transpose, pianoNotes),
   });
 
   function handleSubmit(e: React.FormEvent) {
@@ -115,7 +117,15 @@ export default function HomePage() {
           />
         )}
 
-        <PianoNotesSection />
+        <div className="relative flex items-center my-2">
+          <div className="flex-grow border-t border-gray-200" />
+          <span className="mx-4 text-xs font-semibold text-gray-400 uppercase tracking-wide">or</span>
+          <div className="flex-grow border-t border-gray-200" />
+        </div>
+
+        <ManualChordsSection pianoNotes={pianoNotes} />
+
+        <PianoNotesSection onNotesChange={setPianoNotes} />
       </div>
     </main>
   );

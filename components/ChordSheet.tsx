@@ -5,8 +5,8 @@ import { applyTransposition } from "../lib/services/transpose";
 
 interface Props {
   data: PreviewResponse;
-  onDownload: (transpose: number) => void;
-  downloading: boolean;
+  onDownload?: (transpose: number) => void;
+  downloading?: boolean;
 }
 
 const INSTRUMENTS = [
@@ -30,50 +30,50 @@ export function ChordSheet({ data, onDownload, downloading }: Props) {
     transpose === 0 ? "Original" : `${transpose > 0 ? "+" : ""}${transpose}`;
 
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-4">
+    <div className="w-full max-w-5xl mx-auto bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
       {/* Song header */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">{song.title}</h2>
-            <p className="text-gray-500 mt-0.5">{song.artist}</p>
-            <p className="text-xs text-gray-400 mt-1 truncate max-w-md">{song.url}</p>
+      <div className="p-6 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">{song.title}</h2>
+          <p className="text-gray-500 mt-0.5">{song.artist}</p>
+          <p className="text-xs text-gray-400 mt-1 truncate max-w-md">{song.url}</p>
+        </div>
+
+        <div className="flex items-center gap-4 flex-wrap">
+          {/* Transpose control */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+              Transpose
+            </span>
+            <button
+              onClick={() => setTranspose((t) => Math.max(-11, t - 1))}
+              className="w-7 h-7 rounded-full border border-gray-300 hover:bg-gray-100 text-gray-600 font-bold flex items-center justify-center transition-colors"
+              aria-label="Transpose down"
+            >
+              −
+            </button>
+            <span className="w-16 text-center text-sm font-semibold text-gray-700">
+              {transposeLabel}
+            </span>
+            <button
+              onClick={() => setTranspose((t) => Math.min(11, t + 1))}
+              className="w-7 h-7 rounded-full border border-gray-300 hover:bg-gray-100 text-gray-600 font-bold flex items-center justify-center transition-colors"
+              aria-label="Transpose up"
+            >
+              +
+            </button>
+            {transpose !== 0 && (
+              <button
+                onClick={() => setTranspose(0)}
+                className="text-xs text-blue-500 hover:text-blue-700 transition-colors"
+              >
+                Reset
+              </button>
+            )}
           </div>
 
-          <div className="flex items-center gap-4 flex-wrap">
-            {/* Transpose control */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-                Transpose
-              </span>
-              <button
-                onClick={() => setTranspose((t) => Math.max(-11, t - 1))}
-                className="w-7 h-7 rounded-full border border-gray-300 hover:bg-gray-100 text-gray-600 font-bold flex items-center justify-center transition-colors"
-                aria-label="Transpose down"
-              >
-                −
-              </button>
-              <span className="w-16 text-center text-sm font-semibold text-gray-700">
-                {transposeLabel}
-              </span>
-              <button
-                onClick={() => setTranspose((t) => Math.min(11, t + 1))}
-                className="w-7 h-7 rounded-full border border-gray-300 hover:bg-gray-100 text-gray-600 font-bold flex items-center justify-center transition-colors"
-                aria-label="Transpose up"
-              >
-                +
-              </button>
-              {transpose !== 0 && (
-                <button
-                  onClick={() => setTranspose(0)}
-                  className="text-xs text-blue-500 hover:text-blue-700 transition-colors"
-                >
-                  Reset
-                </button>
-              )}
-            </div>
-
-            {/* Download */}
+          {/* Download */}
+          {onDownload && (
             <button
               onClick={() => onDownload(transpose)}
               disabled={downloading}
@@ -81,12 +81,12 @@ export function ChordSheet({ data, onDownload, downloading }: Props) {
             >
               {downloading ? <><Spinner /> Generating PDF…</> : <><DownloadIcon /> Download PDF</>}
             </button>
-          </div>
+          )}
         </div>
       </div>
 
       {/* Chord grid */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm overflow-x-auto">
+      <div className="border-t border-gray-100 p-6 overflow-x-auto">
         <div
           className="grid items-center gap-x-4 gap-y-2"
           style={{ gridTemplateColumns: `6rem repeat(${n}, minmax(80px, 1fr))` }}

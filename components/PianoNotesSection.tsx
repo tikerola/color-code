@@ -1,6 +1,7 @@
 "use client";
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { getNoteColor } from "../lib/services/chord-colors";
+import type { PianoSeqItem } from "../lib/types";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -34,6 +35,13 @@ function buildRows(items: SeqItem[]): Row[] {
   }
   rows.push({ items: current, linebreakUid: null });
   return rows;
+}
+
+function toShareable(item: SeqItem): PianoSeqItem {
+  if (item.kind === "note")     return { kind: "note", letter: item.letter, octave: item.octave };
+  if (item.kind === "barline")  return { kind: "barline" };
+  if (item.kind === "repeat")   return { kind: "repeat", count: item.count };
+  return { kind: "linebreak" };
 }
 
 // ── Piano keyboard constants ──────────────────────────────────────────────────
@@ -205,13 +213,17 @@ function LineBreakMarker({ onRemove }: { onRemove: () => void }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function PianoNotesSection() {
+export function PianoNotesSection({ onNotesChange }: { onNotesChange?: (notes: PianoSeqItem[]) => void } = {}) {
   const [items, setItems]             = useState<SeqItem[]>([]);
   const [repeatCount, setRepeatCount] = useState(2);
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   const [history, setHistory]         = useState<SeqItem[][]>([]);
   const [previewMode, setPreviewMode] = useState(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
+
+  useEffect(() => {
+    onNotesChange?.(items.map(toShareable));
+  }, [items, onNotesChange]);
 
   function play(letter: string, octave: number) {
     if (typeof window === "undefined") return;
