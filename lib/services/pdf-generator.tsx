@@ -6,7 +6,6 @@ import {
   View,
   Image,
   StyleSheet,
-  renderToBuffer,
 } from "@react-pdf/renderer";
 import type { Chord, ChordDiagram, PianoSeqItem, Progression, Song } from "../types";
 import { getNoteColor } from "./chord-colors";
@@ -40,6 +39,18 @@ const INSTRUMENTS = [
   { key: "piano",   label: "Piano"   },
 ] as const;
 
+// ── Encoding helper (works in browser and Node.js) ─────────────────────────────
+
+function svgToDataUri(svg: string): string {
+  // encodeURIComponent → Latin-1 bytes → btoa avoids Buffer (Node-only)
+  const b64 = btoa(
+    encodeURIComponent(svg).replace(/%([0-9A-F]{2})/gi, (_, hex) =>
+      String.fromCharCode(parseInt(hex, 16))
+    )
+  );
+  return `data:image/svg+xml;base64,${b64}`;
+}
+
 // ── Figurenote helpers ─────────────────────────────────────────────────────────
 
 function pianoNoteDataUri(letter: string, octave: number): string {
@@ -52,16 +63,15 @@ function pianoNoteDataUri(letter: string, octave: number): string {
   } else {
     shape = `<circle cx="20" cy="20" r="17" fill="${color}"/><text x="20" y="25" text-anchor="middle" font-size="13" fill="white" font-weight="bold">${octave}</text>`;
   }
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">${shape}</svg>`;
-  return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
+  return svgToDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">${shape}</svg>`);
 }
 
 // ── Keyboard SVG ───────────────────────────────────────────────────────────────
 
-const KB_WKW = 36;          // white key width
-const KB_WKH = 80;          // white key height
-const KB_BKW = 22;          // black key width
-const KB_BKH = 50;          // black key height
+const KB_WKW = 36;
+const KB_WKH = 80;
+const KB_BKW = 22;
+const KB_BKH = 50;
 const KB_OCT_W = KB_WKW * 7;
 const KB_TOTAL_W = KB_OCT_W * 2;
 
@@ -75,7 +85,6 @@ const BLACK_KEY_DEFS = [
 ];
 
 function keyboardSvgDataUri(notes: PianoSeqItem[]): string {
-  // Collect unique note keys present in the sequence
   const active = new Set<string>();
   for (const item of notes) {
     if (item.kind === "note") active.add(`${item.letter}${item.octave}`);
@@ -96,43 +105,36 @@ function keyboardSvgDataUri(notes: PianoSeqItem[]): string {
     const oct = octIdx + 1;
     const ox = octIdx * KB_OCT_W;
 
-    // White keys
     for (let i = 0; i < WHITE_KEYS_LETTERS.length; i++) {
       const letter = WHITE_KEYS_LETTERS[i];
       const x = ox + i * KB_WKW;
       out += `<rect x="${x}" y="0" width="${KB_WKW - 1}" height="${KB_WKH}" fill="white" stroke="#ccc" stroke-width="1" rx="1"/>`;
-      // "C1"/"C2" label on C key
       if (letter === "C") {
         out += `<text x="${x + 3}" y="${KB_WKH - 4}" font-size="7" fill="#aaa" font-family="Helvetica">C${oct}</text>`;
       }
     }
 
-    // Symbols on white keys (drawn before black keys so blacks overlay top portion)
     for (let i = 0; i < WHITE_KEYS_LETTERS.length; i++) {
       const letter = WHITE_KEYS_LETTERS[i];
       if (!active.has(`${letter}${oct}`)) continue;
       const cx = ox + i * KB_WKW + (KB_WKW - 1) / 2;
-      const cy = KB_BKH + (KB_WKH - KB_BKH) / 2; // centre of lower white area
+      const cy = KB_BKH + (KB_WKH - KB_BKH) / 2;
       out += symbolOnKey(cx, cy, 12, letter, oct);
     }
 
-    // Black keys
     for (const { letter, x: bx } of BLACK_KEY_DEFS) {
-      const x = ox + bx;
-      out += `<rect x="${x}" y="0" width="${KB_BKW}" height="${KB_BKH}" fill="#222" rx="2"/>`;
+      out += `<rect x="${ox + bx}" y="0" width="${KB_BKW}" height="${KB_BKH}" fill="#222" rx="2"/>`;
     }
 
-    // Symbols on black keys
     for (const { letter, x: bx } of BLACK_KEY_DEFS) {
       if (!active.has(`${letter}${oct}`)) continue;
       const cx = ox + bx + KB_BKW / 2;
-      const cy = KB_BKH - 10;
-      out += symbolOnKey(cx, cy, 8, letter, oct);
+      out += symbolOnKey(cx, KB_BKH - 10, 8, letter, oct);
     }
   }
 
   out += `</svg>`;
-  return `data:image/svg+xml;base64,${Buffer.from(out).toString("base64")}`;
+  return svgToDataUri(out);
 }
 
 function buildPianoRows(notes: PianoSeqItem[]): Exclude<PianoSeqItem, { kind: "linebreak" }>[][] {
@@ -153,27 +155,18 @@ function PianoNotesPdfSection({ notes }: { notes: PianoSeqItem[] }) {
   const rows = buildPianoRows(notes);
   if (rows.length === 0) return null;
 
-  const kbUri = keyboardSvgDataUri(notes);
-
   return (
     <View style={{ marginTop: 20 }}>
       <Text style={styles.pianoHeader}>Piano Note Sequence</Text>
-      {/* Keyboard overview with active keys marked */}
-      <Image src={kbUri} style={{ width: KB_TOTAL_W, height: KB_WKH, marginBottom: 10 }} />
+      <Image src={keyboardSvgDataUri(notes)} style={{ width: KB_TOTAL_W, height: KB_WKH, marginBottom: 10 }} />
       {rows.map((row, rowIdx) => (
-        <View
-          key={rowIdx}
-          style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}
-        >
+        <View key={rowIdx} style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
           {row.map((item, idx) => {
             if (item.kind === "note") {
               const color = getNoteColor(item.letter);
               return (
                 <View key={idx} style={{ alignItems: "center", marginRight: 6 }}>
-                  <Image
-                    src={pianoNoteDataUri(item.letter, item.octave)}
-                    style={{ width: 26, height: 26 }}
-                  />
+                  <Image src={pianoNoteDataUri(item.letter, item.octave)} style={{ width: 26, height: 26 }} />
                   <Text style={{ fontSize: 7, color, fontWeight: "bold", marginTop: 1 }}>
                     {item.letter}{item.octave}
                   </Text>
@@ -182,18 +175,12 @@ function PianoNotesPdfSection({ notes }: { notes: PianoSeqItem[] }) {
             }
             if (item.kind === "barline") {
               return (
-                <View
-                  key={idx}
-                  style={{ width: 1.5, height: 38, backgroundColor: "#888", marginHorizontal: 4, alignSelf: "center" }}
-                />
+                <View key={idx} style={{ width: 1.5, height: 38, backgroundColor: "#888", marginHorizontal: 4, alignSelf: "center" }} />
               );
             }
             if (item.kind === "repeat") {
               return (
-                <View
-                  key={idx}
-                  style={{ borderWidth: 0.5, borderColor: "#ccc", borderRadius: 3, paddingHorizontal: 3, paddingVertical: 2, marginRight: 6, alignSelf: "center" }}
-                >
+                <View key={idx} style={{ borderWidth: 0.5, borderColor: "#ccc", borderRadius: 3, paddingHorizontal: 3, paddingVertical: 2, marginRight: 6, alignSelf: "center" }}>
                   <Text style={{ fontSize: 8, color: "#666" }}>×{item.count}</Text>
                 </View>
               );
@@ -208,7 +195,7 @@ function PianoNotesPdfSection({ notes }: { notes: PianoSeqItem[] }) {
 
 // ── Main PDF document ──────────────────────────────────────────────────────────
 
-interface PdfProps {
+export interface PdfProps {
   song: Song;
   progression: Progression;
   chords: Chord[];
@@ -220,25 +207,20 @@ function PdfDocument({ song, progression, chords, diagrams, pianoNotes }: PdfPro
   const chordMap = new Map(chords.map((c) => [c.name, c]));
   const timestamp = new Date().toISOString().slice(0, 19).replace("T", " ");
 
-  // Dynamic column width: fill page width based on chord count
   const n = progression.sequence.length;
   const colW = Math.max(40, Math.floor((USABLE_W - LABEL_W - n * COL_GAP) / n));
-  const diagH = Math.round(colW * 1.18); // ~guitar aspect ratio
+  const diagH = Math.round(colW * 1.18);
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>{song.title}</Text>
           <Text style={styles.artist}>{song.artist}</Text>
           <Text style={styles.url}>{song.url}</Text>
         </View>
 
-        {/* Chord grid */}
         <View style={{ flexDirection: "column" }}>
-
-          {/* Progression row */}
           <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 6, gap: COL_GAP }}>
             <View style={styles.labelCell}>
               <Text style={styles.progressionLabel}>Chords</Text>
@@ -258,7 +240,6 @@ function PdfDocument({ song, progression, chords, diagrams, pianoNotes }: PdfPro
             })}
           </View>
 
-          {/* One row per instrument */}
           {INSTRUMENTS.map(({ key, label }) => (
             <View key={key} style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 4, gap: COL_GAP }}>
               <View style={styles.labelCell}>
@@ -266,14 +247,9 @@ function PdfDocument({ song, progression, chords, diagrams, pianoNotes }: PdfPro
               </View>
               {progression.sequence.map((name) => {
                 const d = diagrams.find((d) => d.chord === name && d.instrument === key);
-                const dataUri = d
-                  ? `data:image/svg+xml;base64,${Buffer.from(d.svg).toString("base64")}`
-                  : undefined;
                 return (
                   <View key={name} style={{ width: colW, alignItems: "center" }}>
-                    {dataUri && (
-                      <Image src={dataUri} style={{ width: colW, height: diagH }} />
-                    )}
+                    {d && <Image src={svgToDataUri(d.svg)} style={{ width: colW, height: diagH }} />}
                   </View>
                 );
               })}
@@ -281,7 +257,6 @@ function PdfDocument({ song, progression, chords, diagrams, pianoNotes }: PdfPro
           ))}
         </View>
 
-        {/* Piano notes section */}
         {pianoNotes && pianoNotes.length > 0 && (
           <PianoNotesPdfSection notes={pianoNotes} />
         )}
@@ -295,7 +270,8 @@ function PdfDocument({ song, progression, chords, diagrams, pianoNotes }: PdfPro
   );
 }
 
-export async function generatePdf(props: PdfProps): Promise<Buffer> {
-  const buffer = await renderToBuffer(<PdfDocument {...props} />);
-  return Buffer.from(buffer);
+export async function generatePdfBlob(props: PdfProps): Promise<Blob> {
+  // Dynamic import keeps the heavy pdf() renderer out of the SSR/build pass
+  const { pdf } = await import("@react-pdf/renderer");
+  return pdf(<PdfDocument {...props} />).toBlob();
 }

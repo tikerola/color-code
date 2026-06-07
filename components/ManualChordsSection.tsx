@@ -1,6 +1,10 @@
 "use client";
 import { useState } from "react";
 import { ChordSheet } from "./ChordSheet";
+import { getChordColor } from "../lib/services/chord-colors";
+import { getChordDiagram } from "../lib/services/chord-diagram";
+import { applyTransposition } from "../lib/services/transpose";
+import { generatePdfBlob } from "../lib/services/pdf-generator";
 import type { PreviewResponse, PianoSeqItem } from "../lib/types";
 
 function parseChordInput(raw: string): string[] {
@@ -11,68 +15,54 @@ function parseChordInput(raw: string): string[] {
     .map((t) => t[0].toUpperCase() + t.slice(1));
 }
 
-export function ManualChordsSection({ pianoNotes }: { pianoNotes?: PianoSeqItem[] } = {}) {
-  const [chordsInput, setChordsInput]       = useState("");
-  const [titleInput, setTitleInput]         = useState("");
-  const [data, setData]                     = useState<PreviewResponse | null>(null);
-  const [loading, setLoading]               = useState(false);
-  const [downloading, setDownloading]       = useState(false);
-  const [error, setError]                   = useState<string | null>(null);
+function buildChordData(title: string, chords: string[]): PreviewResponse {
+  const unique = [...new Set(chords)];
+  return {
+    song: { title, artist: "", url: "", chords: unique },
+    progression: { sequence: chords, repeatCount: 1 },
+    chords: unique.map((name) => ({ name, color: getChordColor(name) })),
+    diagrams: [
+      ...unique.map((name) => getChordDiagram(name, "guitar")),
+      ...unique.map((name) => getChordDiagram(name, "ukulele")),
+      ...unique.map((name) => getChordDiagram(name, "piano")),
+    ],
+  };
+}
 
-  // Remember what was last submitted so the PDF route gets the same input
+export function ManualChordsSection({ pianoNotes }: { pianoNotes?: PianoSeqItem[] } = {}) {
+  const [chordsInput, setChordsInput]         = useState("");
+  const [titleInput, setTitleInput]           = useState("");
+  const [data, setData]                       = useState<PreviewResponse | null>(null);
   const [submittedChords, setSubmittedChords] = useState<string[]>([]);
   const [submittedTitle, setSubmittedTitle]   = useState("");
+  const [downloading, setDownloading]         = useState(false);
+  const [error, setError]                     = useState<string | null>(null);
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const chords = parseChordInput(chordsInput);
     if (chords.length === 0) return;
-
     const title = titleInput.trim() || "Custom Chords";
     setSubmittedChords(chords);
     setSubmittedTitle(title);
-    setLoading(true);
     setError(null);
-
-    try {
-      const res = await fetch("/api/manual", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, chords }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message ?? "Failed to generate chord sheet");
-      }
-      setData(await res.json());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setLoading(false);
-    }
+    setData(buildChordData(title, chords));
   }
 
   async function handleDownload(transpose: number) {
     setDownloading(true);
     setError(null);
     try {
-      const res = await fetch("/api/manual-pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: submittedTitle, chords: submittedChords, transpose, pianoNotes }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message ?? "PDF generation failed");
-      }
-      const blob = await res.blob();
+      const raw = buildChordData(submittedTitle, submittedChords);
+      const transposed = applyTransposition(raw, transpose);
+      const blob = await generatePdfBlob({ ...transposed, pianoNotes });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
       a.download = `${submittedTitle.replace(/[^a-zA-Z0-9_\- ]/g, "").trim() || "chord-sheet"}.pdf`;
       a.click();
       URL.revokeObjectURL(a.href);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "PDF download failed");
+      setError(err instanceof Error ? err.message : "PDF generation failed");
     } finally {
       setDownloading(false);
     }
@@ -81,9 +71,9 @@ export function ManualChordsSection({ pianoNotes }: { pianoNotes?: PianoSeqItem[
   return (
     <div className="space-y-4">
       <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-gray-900 mb-1">Manual Chord Entry</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-1">Chord Sheet</h2>
         <p className="text-sm text-gray-500 mb-5">
-          Type chord names to generate colour-coded chord charts — no URL needed
+          Type chord names to generate colour-coded chord charts and a printable PDF
         </p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3 sm:flex-row">
@@ -104,10 +94,9 @@ export function ManualChordsSection({ pianoNotes }: { pianoNotes?: PianoSeqItem[
           />
           <button
             type="submit"
-            disabled={loading}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
           >
-            {loading ? "Building…" : "Generate"}
+            Generate
           </button>
         </form>
 
