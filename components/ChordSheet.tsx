@@ -13,6 +13,10 @@ interface Props {
   downloading?: boolean;
 }
 
+// B natural → H (Finnish notation); Bb stays as Bb
+const displayChordName = (n: string) =>
+  n.startsWith("B") && n[1] !== "b" ? "H" + n.slice(1) : n;
+
 const ALL_INSTRUMENTS = [
   { key: "guitar",  label: "Kitara"  },
   { key: "ukulele", label: "Ukulele" },
@@ -122,7 +126,7 @@ export function ChordSheet({ data, transpose, onTransposeChange, activeInstrumen
                 className="rounded-full px-3 py-1 font-bold text-sm text-center text-white shadow-sm"
                 style={{ backgroundColor: chord?.color ?? "#999" }}
               >
-                {name}
+                {displayChordName(name)}
               </div>
             );
           })}

@@ -5,9 +5,8 @@ import { PianoNotesSection } from "../components/PianoNotesSection";
 import type { PianoSeqItem } from "../lib/types";
 
 export default function HomePage() {
-  const [pianoNotes, setPianoNotes]         = useState<PianoSeqItem[]>([]);
-  const [transpose, setTranspose]           = useState(0);
-  const [melodyInputMode, setMelodyInputMode] = useState<"piano" | "guitar">("piano");
+  const [pianoNotes, setPianoNotes] = useState<PianoSeqItem[]>([]);
+  const [transpose, setTranspose]   = useState(0);
 
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-12">
@@ -23,12 +22,10 @@ export default function HomePage() {
           pianoNotes={pianoNotes}
           transpose={transpose}
           onTransposeChange={setTranspose}
-          melodyInputMode={melodyInputMode}
         />
 
         <PianoNotesSection
           onNotesChange={setPianoNotes}
-          onInputModeChange={setMelodyInputMode}
           transpose={transpose}
         />
       </div>

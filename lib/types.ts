@@ -55,4 +55,5 @@ export type PianoNoteItem      = { kind: "note";      letter: string; octave: nu
 export type PianoBarlineItem   = { kind: "barline" };
 export type PianoRepeatItem    = { kind: "repeat";    count: number };
 export type PianoLineBreakItem = { kind: "linebreak" };
-export type PianoSeqItem       = PianoNoteItem | PianoBarlineItem | PianoRepeatItem | PianoLineBreakItem;
+export type PianoLabelItem     = { kind: "label";     text: string };
+export type PianoSeqItem       = PianoNoteItem | PianoBarlineItem | PianoRepeatItem | PianoLineBreakItem | PianoLabelItem;

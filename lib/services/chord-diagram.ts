@@ -293,7 +293,8 @@ function bassSvg(pos: ChordPosition): string {
   if (displayBase === 1) {
     svg += `<rect x="${padLeft}" y="${padTop}" width="${(strings - 1) * colW}" height="4" fill="black"/>`;
   } else {
-    svg += `<text x="${padLeft - 4}" y="${padTop + rowH * 0.6}" text-anchor="end" font-size="8" font-family="Helvetica">${displayBase}fr</text>`;
+    // Place fret indicator above the grid, well clear of the first dot
+    svg += `<text x="${padLeft - 4}" y="${padTop - 3}" text-anchor="end" font-size="8" font-family="Helvetica">${displayBase}fr</text>`;
   }
 
   for (let f = 0; f <= FRET_ROWS; f++) {
@@ -336,19 +337,17 @@ function fallbackBassChord(name: string): ChordPosition {
   const root = parseRoot(name);
   const semi = NOTE_ORDER.indexOf(normalizeNote(root));
   if (semi === -1) return { frets: [-1, -1, -1, -1] };
-  // Bass strings (low to high): E(4), A(9), D(2+12=14→2)
-  const eFret = (semi - 4 + 12) % 12;
-  const aFret = (semi - 9 + 12) % 12;
-  const dFret = (semi - 2 + 12) % 12;
-  if (eFret === 0) return { frets: [0, -1, -1, -1] };
-  if (aFret === 0) return { frets: [-1, 0, -1, -1] };
-  if (dFret === 0) return { frets: [-1, -1, 0, -1] };
-  const best = [
-    { frets: [eFret, -1, -1, -1] as number[], pos: eFret },
-    { frets: [-1, aFret, -1, -1] as number[], pos: aFret },
-    { frets: [-1, -1, dFret, -1] as number[], pos: dFret },
-  ].sort((a, b) => a.pos - b.pos)[0];
-  return { frets: best.frets };
+  const eFret = (semi - 4 + 12) % 12; // 0 = open E (avoid)
+  const aFret = (semi - 9 + 12) % 12; // 0 = open A (avoid)
+  // Prefer frets 1-5 on lowest string first (student-friendly positions)
+  if (eFret >= 1 && eFret <= 5) return { frets: [eFret, -1, -1, -1] };
+  if (aFret >= 1 && aFret <= 5) return { frets: [-1, aFret, -1, -1] };
+  // Fallback: lowest available closed fret across both strings
+  const closedE = eFret === 0 ? Infinity : eFret;
+  const closedA = aFret === 0 ? Infinity : aFret;
+  return closedA <= closedE
+    ? { frets: [-1, aFret, -1, -1] }
+    : { frets: [eFret, -1, -1, -1] };
 }
 
 export function getChordDiagram(chordName: string, instrument: "guitar" | "ukulele" | "piano" | "bass"): ChordDiagram {

@@ -11,8 +11,11 @@ function parseChordInput(raw: string): string[] {
   return raw
     .split(/[\s,;|]+/)
     .map((t) => t.trim())
-    .filter((t) => /^[A-Ga-g]/.test(t))
-    .map((t) => t[0].toUpperCase() + t.slice(1));
+    .filter((t) => /^[A-Ha-h]/.test(t))
+    .map((t) => {
+      const upper = t[0].toUpperCase() + t.slice(1);
+      return upper[0] === "H" ? "B" + upper.slice(1) : upper;
+    });
 }
 
 function buildChordData(title: string, subtitle: string, chords: string[]): PreviewResponse {
@@ -34,10 +37,9 @@ interface ManualChordsSectionProps {
   pianoNotes?: PianoSeqItem[];
   transpose: number;
   onTransposeChange: (n: number) => void;
-  melodyInputMode?: "piano" | "guitar";
 }
 
-export function ManualChordsSection({ pianoNotes, transpose, onTransposeChange, melodyInputMode = "piano" }: ManualChordsSectionProps) {
+export function ManualChordsSection({ pianoNotes, transpose, onTransposeChange }: ManualChordsSectionProps) {
   const [activeInstruments, setActiveInstruments] = useState<string[]>([]);
   const [chordsInput, setChordsInput]           = useState("");
   const [titleInput, setTitleInput]             = useState("");
@@ -68,7 +70,7 @@ export function ManualChordsSection({ pianoNotes, transpose, onTransposeChange, 
     try {
       const raw = buildChordData(submittedTitle, submittedSubtitle, submittedChords);
       const transposed = applyTransposition(raw, transpose);
-      const blob = await generatePdfBlob({ ...transposed, pianoNotes: transposePianoNotes(pianoNotes ?? [], transpose), activeInstruments, melodyInputMode });
+      const blob = await generatePdfBlob({ ...transposed, pianoNotes: transposePianoNotes(pianoNotes ?? [], transpose), activeInstruments });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
       a.download = `${submittedTitle.replace(/[^a-zA-Z0-9_\- ]/g, "").trim() || "chord-sheet"}.pdf`;

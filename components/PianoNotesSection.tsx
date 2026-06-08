@@ -9,14 +9,18 @@ type NoteItem      = { kind: "note";      letter: string; octave: number; uid: s
 type BarlineItem   = { kind: "barline";   uid: string };
 type RepeatItem    = { kind: "repeat";    count: number;  uid: string };
 type LineBreakItem = { kind: "linebreak"; uid: string };
-type SeqItem       = NoteItem | BarlineItem | RepeatItem | LineBreakItem;
+type LabelItem     = { kind: "label";     text: string;   uid: string };
+type SeqItem       = NoteItem | BarlineItem | RepeatItem | LineBreakItem | LabelItem;
 
-type Row = { items: Exclude<SeqItem, LineBreakItem>[]; linebreakUid: string | null };
+type RowItem = NoteItem | BarlineItem | RepeatItem;
+type Row = { label: string | null; labelUid: string | null; items: RowItem[]; linebreakUid: string | null };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 let _uid = 0;
 const uid = () => `i${_uid++}`;
+
+const displayLetter = (l: string) => l === "B" ? "H" : l;
 
 function makeNote(letter: string, octave: number): NoteItem {
   return { kind: "note", letter, octave, uid: uid() };
@@ -24,23 +28,35 @@ function makeNote(letter: string, octave: number): NoteItem {
 
 function buildRows(items: SeqItem[]): Row[] {
   const rows: Row[] = [];
-  let current: Exclude<SeqItem, LineBreakItem>[] = [];
+  let current: RowItem[] = [];
+  let pendingLabel: string | null = null;
+  let pendingLabelUid: string | null = null;
   for (const item of items) {
     if (item.kind === "linebreak") {
-      rows.push({ items: current, linebreakUid: item.uid });
+      rows.push({ label: pendingLabel, labelUid: pendingLabelUid, items: current, linebreakUid: item.uid });
       current = [];
+      pendingLabel = null;
+      pendingLabelUid = null;
+    } else if (item.kind === "label") {
+      if (current.length > 0 || pendingLabel !== null) {
+        rows.push({ label: pendingLabel, labelUid: pendingLabelUid, items: current, linebreakUid: null });
+        current = [];
+      }
+      pendingLabel = item.text;
+      pendingLabelUid = item.uid;
     } else {
-      current.push(item);
+      current.push(item as RowItem);
     }
   }
-  rows.push({ items: current, linebreakUid: null });
-  return rows;
+  rows.push({ label: pendingLabel, labelUid: pendingLabelUid, items: current, linebreakUid: null });
+  return rows.filter((r) => r.items.length > 0 || r.label !== null);
 }
 
 function toShareable(item: SeqItem): PianoSeqItem {
   if (item.kind === "note")     return { kind: "note", letter: item.letter, octave: item.octave };
   if (item.kind === "barline")  return { kind: "barline" };
   if (item.kind === "repeat")   return { kind: "repeat", count: item.count };
+  if (item.kind === "label")    return { kind: "label", text: item.text };
   return { kind: "linebreak" };
 }
 
@@ -65,7 +81,7 @@ function transposeNote(letter: string, octave: number, semitones: number): { let
 
 const GUITAR_STRING_DEFS = [
   { name: "e", openMidi: 64 },
-  { name: "B", openMidi: 59 },
+  { name: "H", openMidi: 59 },
   { name: "G", openMidi: 55 },
   { name: "D", openMidi: 50 },
   { name: "A", openMidi: 45 },
@@ -79,7 +95,6 @@ const FB_OPEN_W     = 38;
 const FB_NUT_W      = 4;
 const FB_FRET_W     = 42;
 const FB_ROW_H      = 22;
-const FB_INLAY_H    = 10;
 const FB_TOTAL_W    = FB_LABEL_W + FB_OPEN_W + FB_NUT_W + GUITAR_FRETS * FB_FRET_W;
 const FB_TOTAL_H    = 6 * FB_ROW_H;
 
@@ -200,14 +215,14 @@ function NoteDisplay({
     >
       <button
         onClick={(e) => { e.stopPropagation(); onRemove(); }}
-        aria-label={`Poista ${item.letter}${item.octave}`}
+        aria-label={`Poista ${displayLetter(item.letter)}${item.octave}`}
         className="absolute -top-1 -right-1 w-4 h-4 bg-gray-200 hover:bg-red-100 rounded-full text-gray-500 hover:text-red-500 text-xs hidden group-hover:flex items-center justify-center leading-none z-10"
       >
         ×
       </button>
       <FigureNoteSymbol letter={item.letter} octave={item.octave} />
       <span className="text-xs font-bold" style={{ color }}>
-        {item.letter}{item.octave}
+        {displayLetter(item.letter)}{item.octave}
       </span>
     </div>
   );
@@ -262,13 +277,14 @@ function LineBreakMarker({ onRemove }: { onRemove: () => void }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function PianoNotesSection({ onNotesChange, onInputModeChange, transpose = 0 }: { onNotesChange?: (notes: PianoSeqItem[]) => void; onInputModeChange?: (mode: "piano" | "guitar") => void; transpose?: number } = {}) {
+export function PianoNotesSection({ onNotesChange, transpose = 0 }: { onNotesChange?: (notes: PianoSeqItem[]) => void; transpose?: number } = {}) {
   const [items, setItems]             = useState<SeqItem[]>([]);
   const [repeatCount, setRepeatCount] = useState(2);
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   const [history, setHistory]         = useState<SeqItem[][]>([]);
   const [previewMode, setPreviewMode] = useState(false);
   const [inputMode, setInputMode]     = useState<"piano" | "guitar">("piano");
+  const [labelInput, setLabelInput]   = useState("");
   const audioCtxRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
@@ -406,7 +422,7 @@ export function PianoNotesSection({ onNotesChange, onInputModeChange, transpose 
               {(["piano", "guitar"] as const).map((mode) => (
                 <button
                   key={mode}
-                  onClick={() => { setInputMode(mode); onInputModeChange?.(mode); }}
+                  onClick={() => setInputMode(mode)}
                   className={`text-xs font-semibold px-3 py-1 rounded-full transition-colors ${
                     inputMode === mode
                       ? "bg-white text-gray-800 shadow-sm"
@@ -460,7 +476,7 @@ export function PianoNotesSection({ onNotesChange, onInputModeChange, transpose 
                       <button
                         key={`${letter}${oct}`}
                         onClick={() => handleKeyPress(letter, oct)}
-                        title={`${letter}${oct}`}
+                        title={`${displayLetter(letter)}${oct}`}
                         style={{
                           position: "absolute",
                           left: octOffset + i * WHITE_KEY_W,
@@ -470,7 +486,7 @@ export function PianoNotesSection({ onNotesChange, onInputModeChange, transpose 
                         }}
                         className="bg-white hover:bg-blue-50 active:bg-blue-100 border border-gray-300 rounded-b-md flex items-end justify-center pb-2 text-xs text-gray-500 font-medium transition-colors"
                       >
-                        {letter === "C" ? `C${oct}` : letter}
+                        {letter === "C" ? `C${oct}` : displayLetter(letter)}
                       </button>
                     ))}
                     {BLACK_KEY_OFFSETS.map(({ letter, left }) => (
@@ -553,7 +569,7 @@ export function PianoNotesSection({ onNotesChange, onInputModeChange, transpose 
               {/* ── Background: inlay dots — midpoint between G (si=2) and D (si=3) ── */}
               {Array.from({ length: GUITAR_FRETS }, (_, i) => {
                 const fret = i + 1;
-                const inlayCY = 3 * FB_ROW_H; // midpoint between G center (2.5*ROW_H) and D center (3.5*ROW_H)
+                const inlayCY = 3 * FB_ROW_H;
                 const cx = FB_LABEL_W + FB_OPEN_W + FB_NUT_W + (fret - 0.5) * FB_FRET_W;
                 if (fret === 12) return (
                   <React.Fragment key={fret}>
@@ -579,13 +595,13 @@ export function PianoNotesSection({ onNotesChange, onInputModeChange, transpose 
                       return (
                         <button
                           onClick={() => handleKeyPress(letter, octave)}
-                          title={`${letter}${octave} (avoin)`}
+                          title={`${displayLetter(letter)}${octave} (avoin)`}
                           style={{ width: FB_OPEN_W, height: FB_ROW_H }}
                           className="relative flex items-center justify-center hover:bg-blue-50/70 active:bg-blue-100/70 transition-colors group shrink-0"
                         >
                           <div className="relative z-10 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold opacity-20 group-hover:opacity-100 transition-opacity"
                             style={{ backgroundColor: color }}>
-                            {letter.replace("#", "♯")}
+                            {displayLetter(letter).replace("#", "♯")}
                           </div>
                         </button>
                       );
@@ -600,13 +616,13 @@ export function PianoNotesSection({ onNotesChange, onInputModeChange, transpose 
                         <button
                           key={fi}
                           onClick={() => handleKeyPress(letter, octave)}
-                          title={`${letter}${octave}`}
+                          title={`${displayLetter(letter)}${octave}`}
                           style={{ width: FB_FRET_W, height: FB_ROW_H }}
                           className="relative flex items-center justify-center hover:bg-blue-50/70 active:bg-blue-100/70 transition-colors group shrink-0"
                         >
                           <div className="relative z-10 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity"
                             style={{ backgroundColor: color }}>
-                            {letter.replace("#", "♯")}
+                            {displayLetter(letter).replace("#", "♯")}
                           </div>
                         </button>
                       );
@@ -658,6 +674,34 @@ export function PianoNotesSection({ onNotesChange, onInputModeChange, transpose 
         >
           ↵ Uusi rivi
         </button>
+
+        <div className="flex items-center gap-1.5 border border-gray-300 rounded-lg px-3 py-1.5">
+          <input
+            type="text"
+            value={labelInput}
+            onChange={(e) => setLabelInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && labelInput.trim()) {
+                insertAfterSelected({ kind: "label", text: labelInput.trim(), uid: uid() });
+                setLabelInput("");
+              }
+            }}
+            placeholder="Osio..."
+            title="Osion otsikko nuottisarjaan, esim. Intro, Säkeistö, Kertosäe"
+            className="w-24 text-sm text-gray-700 placeholder-gray-400 focus:outline-none"
+          />
+          <button
+            onClick={() => {
+              if (!labelInput.trim()) return;
+              insertAfterSelected({ kind: "label", text: labelInput.trim(), uid: uid() });
+              setLabelInput("");
+            }}
+            title="Lisää osio-otsikko nuottisarjaan"
+            className="text-sm text-gray-600 hover:text-gray-900 font-medium transition-colors whitespace-nowrap"
+          >
+            Lisää otsikko
+          </button>
+        </div>
       </div>
 
       {/* Sequence display */}
@@ -674,39 +718,57 @@ export function PianoNotesSection({ onNotesChange, onInputModeChange, transpose 
             )}
           </div>
           {rows.map((row, rowIdx) => (
-            <div key={rowIdx} className="flex flex-wrap items-center gap-3 min-h-16 border-b border-gray-100 pb-3 last:border-0 last:pb-0">
-              {row.items.map((item) => {
-                if (item.kind === "note") {
-                  const displayed = transposeNote(item.letter, item.octave, transpose);
-                  return (
-                    <NoteDisplay
-                      key={item.uid}
-                      item={{ ...item, ...displayed }}
-                      selected={selectedUid === item.uid}
-                      onToggleSelect={() =>
-                        setSelectedUid((prev) => (prev === item.uid ? null : item.uid))
-                      }
-                      onRemove={() => removeItem(item.uid)}
-                    />
-                  );
-                }
-                if (item.kind === "barline") {
-                  return <BarlineDisplay key={item.uid} onRemove={() => removeItem(item.uid)} />;
-                }
-                if (item.kind === "repeat") {
-                  return (
-                    <RepeatDisplay
-                      key={item.uid}
-                      item={item}
-                      onRemove={() => removeItem(item.uid)}
-                    />
-                  );
-                }
-                return null;
-              })}
-              {row.linebreakUid && (
-                <LineBreakMarker onRemove={() => removeItem(row.linebreakUid!)} />
+            <div key={rowIdx}>
+              {row.label !== null && (
+                <div className="flex items-center gap-2 mt-2 mb-1">
+                  <span className="text-sm font-bold text-gray-700 bg-gray-100 rounded-md px-2 py-0.5">
+                    {row.label}
+                  </span>
+                  {row.labelUid && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); removeItem(row.labelUid!); }}
+                      aria-label={`Poista otsikko ${row.label}`}
+                      className="w-4 h-4 bg-gray-200 hover:bg-red-100 rounded-full text-gray-500 hover:text-red-500 text-xs flex items-center justify-center"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
               )}
+              <div className="flex flex-wrap items-center gap-3 min-h-16 border-b border-gray-100 pb-3 last:border-0 last:pb-0">
+                {row.items.map((item) => {
+                  if (item.kind === "note") {
+                    const displayed = transposeNote(item.letter, item.octave, transpose);
+                    return (
+                      <NoteDisplay
+                        key={item.uid}
+                        item={{ ...item, ...displayed }}
+                        selected={selectedUid === item.uid}
+                        onToggleSelect={() =>
+                          setSelectedUid((prev) => (prev === item.uid ? null : item.uid))
+                        }
+                        onRemove={() => removeItem(item.uid)}
+                      />
+                    );
+                  }
+                  if (item.kind === "barline") {
+                    return <BarlineDisplay key={item.uid} onRemove={() => removeItem(item.uid)} />;
+                  }
+                  if (item.kind === "repeat") {
+                    return (
+                      <RepeatDisplay
+                        key={item.uid}
+                        item={item}
+                        onRemove={() => removeItem(item.uid)}
+                      />
+                    );
+                  }
+                  return null;
+                })}
+                {row.linebreakUid && (
+                  <LineBreakMarker onRemove={() => removeItem(row.linebreakUid!)} />
+                )}
+              </div>
             </div>
           ))}
         </div>
