@@ -34,9 +34,10 @@ interface ManualChordsSectionProps {
   pianoNotes?: PianoSeqItem[];
   transpose: number;
   onTransposeChange: (n: number) => void;
+  melodyInputMode?: "piano" | "guitar";
 }
 
-export function ManualChordsSection({ pianoNotes, transpose, onTransposeChange }: ManualChordsSectionProps) {
+export function ManualChordsSection({ pianoNotes, transpose, onTransposeChange, melodyInputMode = "piano" }: ManualChordsSectionProps) {
   const [activeInstruments, setActiveInstruments] = useState<string[]>([]);
   const [chordsInput, setChordsInput]           = useState("");
   const [titleInput, setTitleInput]             = useState("");
@@ -67,7 +68,7 @@ export function ManualChordsSection({ pianoNotes, transpose, onTransposeChange }
     try {
       const raw = buildChordData(submittedTitle, submittedSubtitle, submittedChords);
       const transposed = applyTransposition(raw, transpose);
-      const blob = await generatePdfBlob({ ...transposed, pianoNotes: transposePianoNotes(pianoNotes ?? [], transpose), activeInstruments });
+      const blob = await generatePdfBlob({ ...transposed, pianoNotes: transposePianoNotes(pianoNotes ?? [], transpose), activeInstruments, melodyInputMode });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
       a.download = `${submittedTitle.replace(/[^a-zA-Z0-9_\- ]/g, "").trim() || "chord-sheet"}.pdf`;

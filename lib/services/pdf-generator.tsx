@@ -67,6 +67,103 @@ function pianoNoteDataUri(letter: string, octave: number): string {
   return svgToDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">${shape}</svg>`);
 }
 
+// ── Guitar fretboard SVG ──────────────────────────────────────────────────────
+
+const FB_LABEL_W  = 14;
+const FB_OPEN_W   = 24;
+const FB_NUT_W    = 3;
+const FB_FRET_W   = 42;
+const FB_ROW_H    = 12;
+const FB_FRETS    = 12;
+const FB_TOTAL_W  = FB_LABEL_W + FB_OPEN_W + FB_NUT_W + FB_FRETS * FB_FRET_W;
+const FB_TOTAL_H  = 6 * FB_ROW_H;
+
+const FB_STRINGS = [
+  { name: "e", openMidi: 64 },
+  { name: "B", openMidi: 59 },
+  { name: "G", openMidi: 55 },
+  { name: "D", openMidi: 50 },
+  { name: "A", openMidi: 45 },
+  { name: "E", openMidi: 40 },
+];
+const FB_CHROMATIC = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"] as const;
+
+function fretboardSymbol(cx: number, cy: number, r: number, letter: string, octave: number): string {
+  const color = getNoteColor(letter);
+  const fs = letter.length > 1 ? 3 : 4;
+  const tx = `text-anchor="middle" font-size="${fs}" fill="white" font-weight="bold" font-family="Helvetica"`;
+  if (octave === 1) {
+    return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}" stroke="white" stroke-width="0.5"/>`
+         + `<text x="${cx}" y="${cy + fs * 0.38}" ${tx}>${letter}</text>`;
+  }
+  if (octave === 2) {
+    const pts = `${cx},${cy - r} ${cx + r * 1.2},${cy + r} ${cx - r * 1.2},${cy + r}`;
+    return `<polygon points="${pts}" fill="${color}" stroke="white" stroke-width="0.5"/>`
+         + `<text x="${cx}" y="${cy + r * 0.3 + fs * 0.38}" ${tx}>${letter}</text>`;
+  }
+  return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}" stroke="white" stroke-width="0.5"/>`
+       + `<text x="${cx}" y="${cy + fs * 0.38}" ${tx}>${octave}</text>`;
+}
+
+function guitarFretboardSvgDataUri(notes: PianoSeqItem[]): string {
+  const active = new Set<string>();
+  for (const item of notes) {
+    if (item.kind === "note") active.add(`${item.letter}${item.octave}`);
+  }
+
+  let out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${FB_TOTAL_W} ${FB_TOTAL_H}" width="${FB_TOTAL_W}" height="${FB_TOTAL_H}">`;
+
+  // Nut spans full height
+  out += `<rect x="${FB_LABEL_W + FB_OPEN_W}" y="0" width="${FB_NUT_W}" height="${FB_TOTAL_H}" fill="#555"/>`;
+  // Fret wires span full height
+  for (let f = 1; f <= FB_FRETS; f++) {
+    const x = FB_LABEL_W + FB_OPEN_W + FB_NUT_W + f * FB_FRET_W;
+    out += `<line x1="${x}" y1="0" x2="${x}" y2="${FB_TOTAL_H}" stroke="#ddd" stroke-width="0.8"/>`;
+  }
+  // Inlay dots sit exactly midway between G (si=2) and D (si=3) with no extra gap
+  const inlayY = 3 * FB_ROW_H; // midpoint between string 2 center (2.5*ROW_H) and string 3 center (3.5*ROW_H)
+  for (const f of [3, 5, 7, 9]) {
+    const cx = FB_LABEL_W + FB_OPEN_W + FB_NUT_W + (f - 0.5) * FB_FRET_W;
+    out += `<circle cx="${cx}" cy="${inlayY}" r="2" fill="#e0e0e0"/>`;
+  }
+  const cx12 = FB_LABEL_W + FB_OPEN_W + FB_NUT_W + 11.5 * FB_FRET_W;
+  out += `<circle cx="${cx12 - 6}" cy="${inlayY}" r="2" fill="#e0e0e0"/>`;
+  out += `<circle cx="${cx12 + 6}" cy="${inlayY}" r="2" fill="#e0e0e0"/>`;
+
+  for (let si = 0; si < FB_STRINGS.length; si++) {
+    const { name, openMidi } = FB_STRINGS[si];
+    const cy = (si + 0.5) * FB_ROW_H;
+
+    // String label
+    out += `<text x="${FB_LABEL_W - 2}" y="${cy + 2.5}" text-anchor="end" font-size="6" fill="#aaa" font-family="Helvetica">${name}</text>`;
+    // String line (continuous, thicker for lower strings)
+    out += `<line x1="${FB_LABEL_W}" y1="${cy}" x2="${FB_TOTAL_W}" y2="${cy}" stroke="#ccc" stroke-width="${0.6 + (5 - si) * 0.15}"/>`;
+    // Open string symbol
+    {
+      const semis = openMidi - 12;
+      const oct = Math.floor(semis / 12);
+      const letter = FB_CHROMATIC[semis % 12];
+      if (active.has(`${letter}${oct}`)) {
+        out += fretboardSymbol(FB_LABEL_W + FB_OPEN_W / 2, cy, 4, letter, oct);
+      }
+    }
+    // Fretted symbols
+    for (let f = 1; f <= FB_FRETS; f++) {
+      const semis = openMidi + f - 12;
+      const oct = Math.floor(semis / 12);
+      const letter = FB_CHROMATIC[semis % 12];
+      if (active.has(`${letter}${oct}`)) {
+        const cx = FB_LABEL_W + FB_OPEN_W + FB_NUT_W + (f - 0.5) * FB_FRET_W;
+        out += fretboardSymbol(cx, cy, 4, letter, oct);
+      }
+    }
+
+  }
+
+  out += `</svg>`;
+  return svgToDataUri(out);
+}
+
 // ── Keyboard SVG ───────────────────────────────────────────────────────────────
 
 const KB_WKW = 36;
@@ -158,7 +255,7 @@ function buildPianoRows(notes: PianoSeqItem[]): Exclude<PianoSeqItem, { kind: "l
 
 // ── Piano notes PDF section ────────────────────────────────────────────────────
 
-function PianoNotesPdfSection({ notes }: { notes: PianoSeqItem[] }) {
+function PianoNotesPdfSection({ notes, melodyInputMode }: { notes: PianoSeqItem[]; melodyInputMode?: "piano" | "guitar" }) {
   const rows = buildPianoRows(notes);
   if (rows.length === 0) return null;
 
@@ -167,7 +264,10 @@ function PianoNotesPdfSection({ notes }: { notes: PianoSeqItem[] }) {
       <View style={styles.sectionHeaderWrap}>
         <Text style={styles.sectionHeaderText}>Kuvionuottisarja</Text>
       </View>
-      <Image src={keyboardSvgDataUri(notes)} style={{ width: KB_TOTAL_W, height: KB_WKH, marginBottom: 2 }} />
+      {melodyInputMode === "guitar"
+        ? <Image src={guitarFretboardSvgDataUri(notes)} style={{ width: FB_TOTAL_W, height: FB_TOTAL_H, marginBottom: 2 }} />
+        : <Image src={keyboardSvgDataUri(notes)} style={{ width: KB_TOTAL_W, height: KB_WKH, marginBottom: 2 }} />
+      }
       <View style={styles.melodyHeaderWrap}>
         <Text style={styles.melodyHeaderText}>Melodia</Text>
       </View>
@@ -214,9 +314,10 @@ export interface PdfProps {
   diagrams: ChordDiagram[];
   pianoNotes?: PianoSeqItem[];
   activeInstruments?: string[];
+  melodyInputMode?: "piano" | "guitar";
 }
 
-function PdfDocument({ song, progression, chords, diagrams, pianoNotes, activeInstruments }: PdfProps) {
+function PdfDocument({ song, progression, chords, diagrams, pianoNotes, activeInstruments, melodyInputMode }: PdfProps) {
   const chordMap = new Map(chords.map((c) => [c.name, c]));
   const timestamp = new Date().toISOString().slice(0, 19).replace("T", " ");
   const instruments = (activeInstruments ?? [])
@@ -273,7 +374,7 @@ function PdfDocument({ song, progression, chords, diagrams, pianoNotes, activeIn
         </View>
 
         {pianoNotes && pianoNotes.length > 0 && (
-          <PianoNotesPdfSection notes={pianoNotes} />
+          <PianoNotesPdfSection notes={pianoNotes} melodyInputMode={melodyInputMode} />
         )}
 
         <View style={styles.footer} fixed>
