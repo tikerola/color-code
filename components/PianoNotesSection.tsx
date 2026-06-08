@@ -17,8 +17,7 @@ type Row = { label: string | null; labelUid: string | null; items: RowItem[]; li
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-let _uid = 0;
-const uid = () => `i${_uid++}`;
+const uid = () => Math.random().toString(36).slice(2);
 
 const displayLetter = (l: string) => l === "B" ? "H" : l;
 
@@ -354,17 +353,18 @@ function FretboardInput({
 // ── Sequence item components ──────────────────────────────────────────────────
 
 function NoteDisplay({
-  item, selected, onToggleSelect, onRemove,
+  item, selected, onToggleSelect, onRemove, onPlay,
 }: {
   item: NoteItem;
   selected: boolean;
   onToggleSelect: () => void;
   onRemove: () => void;
+  onPlay: () => void;
 }) {
   const color = getNoteColor(item.letter);
   return (
     <div
-      onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}
+      onClick={(e) => { e.stopPropagation(); onToggleSelect(); onPlay(); }}
       className={`relative group flex flex-col items-center gap-1 rounded-lg p-1 cursor-pointer transition-all ${
         selected
           ? "ring-2 ring-blue-400 ring-offset-1 bg-blue-50"
@@ -807,6 +807,7 @@ export function PianoNotesSection({ onNotesChange, transpose = 0 }: { onNotesCha
                           setSelectedUid((prev) => (prev === item.uid ? null : item.uid))
                         }
                         onRemove={() => removeItem(item.uid)}
+                        onPlay={() => play(displayed.letter, displayed.octave)}
                       />
                     );
                   }
