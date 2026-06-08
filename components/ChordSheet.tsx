@@ -99,8 +99,8 @@ export function ChordSheet({ data, transpose, onTransposeChange, onDownload, dow
             return (
               <div
                 key={name}
-                className="rounded-md px-2 py-1 font-bold text-sm text-center"
-                style={{ border: `3px solid ${chord?.color ?? "#999"}`, color: chord?.color ?? "#999" }}
+                className="rounded-full px-3 py-1 font-bold text-sm text-center text-white shadow-sm"
+                style={{ backgroundColor: chord?.color ?? "#999" }}
               >
                 {name}
               </div>

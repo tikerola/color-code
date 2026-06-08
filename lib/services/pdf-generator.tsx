@@ -25,8 +25,8 @@ const styles = StyleSheet.create({
   sectionHeaderWrap: { marginTop: 10, marginBottom: 5, borderBottomWidth: 0.5, borderBottomColor: "#ddd", paddingBottom: 3 },
   sectionHeaderText: { fontSize: 8, fontWeight: "bold", color: "#666", textTransform: "uppercase" },
   repeatNote:        { fontSize: 7, color: "#bbb" },
-  chordBox:          { borderWidth: 3, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2, alignItems: "center", minWidth: 28 },
-  chordLabel:        { fontSize: 11, fontWeight: "bold" },
+  chordBox:          { borderRadius: 20, paddingHorizontal: 6, paddingVertical: 2, alignItems: "center", minWidth: 24 },
+  chordLabel:        { fontSize: 9, fontWeight: "bold", color: "#fff" },
   melodyHeaderWrap:  { marginTop: 6, marginBottom: 4 },
   melodyHeaderText:  { fontSize: 7, fontWeight: "bold", color: "#888", textTransform: "uppercase" },
   footer:            { position: "absolute", bottom: 14, left: 24, right: 24, flexDirection: "row", justifyContent: "space-between" },
@@ -239,8 +239,8 @@ function PdfDocument({ song, progression, chords, diagrams, pianoNotes }: PdfPro
               const chord = chordMap.get(name) ?? { name, color: "#333" };
               return (
                 <View key={name} style={{ width: colW, alignItems: "center" }}>
-                  <View style={[styles.chordBox, { borderColor: chord.color }]}>
-                    <Text style={[styles.chordLabel, { color: chord.color }]}>{chord.name}</Text>
+                  <View style={[styles.chordBox, { backgroundColor: chord.color }]}>
+                    <Text style={styles.chordLabel}>{chord.name}</Text>
                   </View>
                 </View>
               );
