@@ -540,9 +540,9 @@ export function PianoNotesSection({ onNotesChange, transpose = 0 }: { onNotesCha
 
   const inputHint =
     previewMode    ? "Esikatselutila — nuotteja ei tallenneta" :
-    isReplacing    ? "Napsauta korvataksesi valittu nuotti" :
-    inputMode !== "piano" ? "Napsauta nauhaa lisätäksesi nuotteja" :
-                   "Napsauta koskettimia lisätäksesi nuotteja";
+    isReplacing    ? "Paina korvataksesi valittu nuotti" :
+    inputMode !== "piano" ? "Paina nauhaa lisätäksesi nuotteja" :
+                   "Paina koskettimia lisätäksesi nuotteja";
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm space-y-6" onClick={() => setSelectedUid(null)}>
@@ -745,7 +745,7 @@ export function PianoNotesSection({ onNotesChange, transpose = 0 }: { onNotesCha
                 setLabelInput("");
               }
             }}
-            placeholder="Osio..."
+            placeholder="Esim. Intro"
             title="Osion otsikko nuottisarjaan, esim. Intro, Säkeistö, Kertosäe"
             className="w-24 text-sm text-gray-700 placeholder-gray-400 focus:outline-none"
           />
@@ -834,7 +834,7 @@ export function PianoNotesSection({ onNotesChange, transpose = 0 }: { onNotesCha
         </div>
       ) : (
         <div className="text-center py-6 text-gray-400 text-sm border-2 border-dashed border-gray-200 rounded-lg">
-          Napsauta mitä tahansa koskettimia aloittaaksesi nuottien lisäämisen
+          Paina mitä tahansa koskettimia aloittaaksesi nuottien lisäämisen
         </div>
       )}
     </div>

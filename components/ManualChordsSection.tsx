@@ -96,7 +96,7 @@ export function ManualChordsSection({ pianoNotes, transpose, onTransposeChange }
             type="text"
             value={chordsInput}
             onChange={(e) => setChordsInput(e.target.value)}
-            placeholder="esim.  C  Am  F  G  Em  Dm"
+            placeholder="Esim.  C  Am  F  G  Em  Dm"
             title="Soinnut välilyönnillä tai pilkulla erotettuna, esim. C Am F G Em Dm"
             className="flex-1 rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             required

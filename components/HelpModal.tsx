@@ -48,11 +48,11 @@ const SECTIONS = [
       },
       {
         heading: "Nuotin korvaaminen",
-        text: "Napsauta nuottisarjassa olevaa nuottia valitaksesi sen (sininen kehys). Paina seuraavaksi haluamaasi koskettinta tai nauhaa — valittu nuotti korvautuu uudella.",
+        text: "Paina nuottisarjassa olevaa nuottia valitaksesi sen (sininen kehys). Paina seuraavaksi haluamaasi koskettinta tai nauhaa — valittu nuotti korvautuu uudella.",
       },
       {
         heading: "Nuotin soittaminen",
-        text: "Napsauta mitä tahansa nuottia nuottisarjassa kuullaksesi sen äänen.",
+        text: "Paina mitä tahansa nuottia nuottisarjassa kuullaksesi sen äänen.",
       },
       {
         heading: "Otsikot",
