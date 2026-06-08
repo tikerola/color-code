@@ -379,7 +379,7 @@ function NoteDisplay({
         ×
       </button>
       <FigureNoteSymbol letter={item.letter} octave={item.octave} />
-      <span className="text-xs font-bold" style={{ color }}>
+      <span className="text-base font-bold" style={{ color }}>
         {noteLabel(item.letter, item.octave)}
       </span>
     </div>

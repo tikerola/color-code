@@ -24,8 +24,8 @@ const styles = StyleSheet.create({
   url:               { fontSize: 8, color: "#999" },
   sectionHeaderWrap: { marginTop: 10, marginBottom: 5, borderBottomWidth: 0.5, borderBottomColor: "#ddd", paddingBottom: 3 },
   sectionHeaderText: { fontSize: 8, fontWeight: "bold", color: "#666", textTransform: "uppercase" },
-  chordBox:          { borderRadius: 20, paddingHorizontal: 6, paddingVertical: 2, alignItems: "center", minWidth: 24 },
-  chordLabel:        { fontSize: 9, fontWeight: "bold", color: "#fff" },
+  chordBox:          { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, alignItems: "center", minWidth: 32 },
+  chordLabel:        { fontSize: 13, fontWeight: "bold", color: "#fff" },
   footer:            { position: "absolute", bottom: 14, left: 24, right: 24, flexDirection: "row", justifyContent: "space-between" },
   footerText:        { fontSize: 8, color: "#aaa" },
 });
@@ -102,7 +102,7 @@ function PianoNotesPdfSection({ notes }: { notes: PianoSeqItem[] }) {
   return (
     <View>
       <View style={styles.sectionHeaderWrap}>
-        <Text style={styles.sectionHeaderText}>Kuvionuottisarja</Text>
+        <Text style={styles.sectionHeaderText}>Kuvionuottimelodia</Text>
       </View>
       {rows.map((row, rowIdx) => (
         <View key={rowIdx}>
@@ -118,7 +118,7 @@ function PianoNotesPdfSection({ notes }: { notes: PianoSeqItem[] }) {
                 return (
                   <View key={idx} style={{ alignItems: "center", marginRight: 6 }}>
                     <Image src={pianoNoteDataUri(item.letter, item.octave)} style={{ width: 22, height: 22 }} />
-                    <Text style={{ fontSize: 7, color, fontWeight: "bold", marginTop: 1 }}>
+                    <Text style={{ fontSize: 10, color, fontWeight: "bold", marginTop: 1 }}>
                       {item.octave <= 2
                         ? displayLetter(item.letter).toUpperCase()
                         : displayLetter(item.letter).toLowerCase() + (item.octave === 3 ? "" : String(item.octave - 3))}
