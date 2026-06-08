@@ -49,7 +49,7 @@ export function applyTransposition(data: PreviewResponse, semitones: number): Pr
 
   const diagrams: ChordDiagram[] = [];
   for (const chord of newSequence) {
-    for (const instrument of ["guitar", "ukulele", "piano"] as const) {
+    for (const instrument of ["guitar", "ukulele", "piano", "bass"] as const) {
       diagrams.push(getChordDiagram(chord, instrument));
     }
   }

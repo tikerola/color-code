@@ -59,12 +59,18 @@ const displayChordName = (n: string) =>
 function pianoNoteDataUri(letter: string, octave: number): string {
   const color = getNoteColor(letter);
   let shape: string;
-  if (octave === 1) {
+  if (octave <= 2) {
+    // × cross
+    shape = `<line x1="6" y1="6" x2="34" y2="34" stroke="${color}" stroke-width="8" stroke-linecap="round"/>`
+          + `<line x1="34" y1="6" x2="6" y2="34" stroke="${color}" stroke-width="8" stroke-linecap="round"/>`;
+  } else if (octave === 3) {
+    shape = `<rect x="4" y="4" width="32" height="32" fill="${color}" rx="3"/>`;
+  } else if (octave === 4) {
     shape = `<circle cx="20" cy="20" r="17" fill="${color}"/>`;
-  } else if (octave === 2) {
+  } else if (octave === 5) {
     shape = `<polygon points="20,3 37,37 3,37" fill="${color}"/>`;
   } else {
-    shape = `<circle cx="20" cy="20" r="17" fill="${color}"/><text x="20" y="25" text-anchor="middle" font-size="13" fill="white" font-weight="bold">${octave}</text>`;
+    shape = `<polygon points="20,2 38,20 20,38 2,20" fill="${color}"/>`;
   }
   return svgToDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">${shape}</svg>`);
 }
@@ -113,7 +119,9 @@ function PianoNotesPdfSection({ notes }: { notes: PianoSeqItem[] }) {
                   <View key={idx} style={{ alignItems: "center", marginRight: 6 }}>
                     <Image src={pianoNoteDataUri(item.letter, item.octave)} style={{ width: 22, height: 22 }} />
                     <Text style={{ fontSize: 7, color, fontWeight: "bold", marginTop: 1 }}>
-                      {displayLetter(item.letter)}{item.octave}
+                      {item.octave <= 2
+                        ? displayLetter(item.letter).toUpperCase()
+                        : displayLetter(item.letter).toLowerCase() + (item.octave === 3 ? "" : String(item.octave - 3))}
                     </Text>
                   </View>
                 );

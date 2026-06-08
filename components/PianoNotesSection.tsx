@@ -22,6 +22,17 @@ const uid = () => `i${_uid++}`;
 
 const displayLetter = (l: string) => l === "B" ? "H" : l;
 
+// Classical octave notation: oct2=capital (C,D…H), oct3=lowercase (c,d…h),
+// oct4=c1/d1…, oct5=c2/d2…  (c1 = keski-C = scientific C4)
+const octaveLabel = (oct: number): string =>
+  oct <= 3 ? "c" : `c${oct - 3}`;
+const noteLabel = (letter: string, oct: number): string => {
+  const l = displayLetter(letter);
+  if (oct <= 2) return l.toUpperCase();
+  const suffix = oct === 3 ? "" : String(oct - 3);
+  return l.toLowerCase() + suffix;
+};
+
 function makeNote(letter: string, octave: number): NoteItem {
   return { kind: "note", letter, octave, uid: uid() };
 }
@@ -77,26 +88,13 @@ function transposeNote(letter: string, octave: number, semitones: number): { let
   };
 }
 
-// ── Guitar fretboard constants ────────────────────────────────────────────────
+// ── Fretboard constants (shared) ──────────────────────────────────────────────
 
-const GUITAR_STRING_DEFS = [
-  { name: "e", openMidi: 64 },
-  { name: "H", openMidi: 59 },
-  { name: "G", openMidi: 55 },
-  { name: "D", openMidi: 50 },
-  { name: "A", openMidi: 45 },
-  { name: "E", openMidi: 40 },
-] as const;
-
-const GUITAR_FRETS  = 12;
-const FB_MARKERS    = new Set([3, 5, 7, 9]);
-const FB_LABEL_W    = 28;
-const FB_OPEN_W     = 38;
-const FB_NUT_W      = 4;
-const FB_FRET_W     = 42;
-const FB_ROW_H      = 22;
-const FB_TOTAL_W    = FB_LABEL_W + FB_OPEN_W + FB_NUT_W + GUITAR_FRETS * FB_FRET_W;
-const FB_TOTAL_H    = 6 * FB_ROW_H;
+const FB_LABEL_W = 28;
+const FB_OPEN_W  = 38;
+const FB_NUT_W   = 4;
+const FB_FRET_W  = 42;
+const FB_ROW_H   = 22;
 
 function fbStringTopY(si: number)    { return si * FB_ROW_H; }
 function fbStringCenterY(si: number) { return si * FB_ROW_H + FB_ROW_H / 2; }
@@ -108,6 +106,29 @@ function midiToNote(midi: number): { letter: string; octave: number } {
   return { octave: Math.floor(semis / 12), letter: CHROMATIC_FB[semis % 12] };
 }
 
+// ── Instrument string definitions ─────────────────────────────────────────────
+
+const GUITAR_STRING_DEFS = [
+  { name: "e", openMidi: 64 },
+  { name: "H", openMidi: 59 },
+  { name: "G", openMidi: 55 },
+  { name: "D", openMidi: 50 },
+  { name: "A", openMidi: 45 },
+  { name: "E", openMidi: 40 },
+] as const;
+
+const UKULELE_STRING_DEFS = [
+  { name: "G", openMidi: 67 },
+  { name: "C", openMidi: 60 },
+  { name: "E", openMidi: 64 },
+  { name: "A", openMidi: 69 },
+] as const;
+
+const GUITAR_FRETS   = 12;
+const GUITAR_MARKERS = new Set([3, 5, 7, 9]);
+const UKE_FRETS      = 12;
+const UKE_MARKERS    = new Set([5, 7, 10]);
+
 // ── Piano keyboard constants ──────────────────────────────────────────────────
 
 const WHITE_KEYS = ["C", "D", "E", "F", "G", "A", "B"] as const;
@@ -116,7 +137,7 @@ const WHITE_KEY_H = 100;
 const BLACK_KEY_W = 22;
 const BLACK_KEY_H = 62;
 const OCTAVE_W = WHITE_KEY_W * 7;
-const KEYBOARD_OCTAVES = [1, 2] as const;
+const KEYBOARD_OCTAVES = [3, 4, 5] as const;
 
 const BLACK_KEY_OFFSETS = [
   { letter: "C#", left: 25 },
@@ -151,7 +172,6 @@ function playPianoNote(ctx: AudioContext, frequency: number) {
   filter.Q.value = 0.8;
   filter.connect(master);
 
-  // Additive synthesis: fundamental + harmonics
   [[1, 1.0], [2, 0.45], [3, 0.2], [4, 0.1], [5, 0.05]].forEach(([mult, gain]) => {
     const osc = ctx.createOscillator();
     const g   = ctx.createGain();
@@ -164,7 +184,6 @@ function playPianoNote(ctx: AudioContext, frequency: number) {
     osc.stop(now + 2.5);
   });
 
-  // Piano-like ADSR: instant attack, quick decay, slow tail
   master.gain.setValueAtTime(0, now);
   master.gain.linearRampToValueAtTime(0.35, now + 0.008);
   master.gain.exponentialRampToValueAtTime(0.18, now + 0.12);
@@ -176,21 +195,160 @@ function playPianoNote(ctx: AudioContext, frequency: number) {
 function FigureNoteSymbol({ letter, octave }: { letter: string; octave: number }) {
   const color = getNoteColor(letter);
   let shape: React.ReactNode;
-  if (octave === 1) {
-    shape = <circle cx={20} cy={20} r={17} fill={color} />;
-  } else if (octave === 2) {
-    shape = <polygon points="20,3 37,37 3,37" fill={color} />;
-  } else {
+  if (octave <= 2) {
+    // × cross
     shape = (
       <>
-        <circle cx={20} cy={20} r={17} fill={color} />
-        <text x={20} y={25} textAnchor="middle" fontSize={13} fill="#fff" fontWeight="bold">
-          {octave}
-        </text>
+        <line x1={6} y1={6} x2={34} y2={34} stroke={color} strokeWidth={8} strokeLinecap="round" />
+        <line x1={34} y1={6} x2={6} y2={34} stroke={color} strokeWidth={8} strokeLinecap="round" />
       </>
     );
+  } else if (octave === 3) {
+    shape = <rect x={4} y={4} width={32} height={32} fill={color} rx={3} />;
+  } else if (octave === 4) {
+    shape = <circle cx={20} cy={20} r={17} fill={color} />;
+  } else if (octave === 5) {
+    shape = <polygon points="20,3 37,37 3,37" fill={color} />;
+  } else {
+    // Diamond for octave 6+
+    shape = <polygon points="20,2 38,20 20,38 2,20" fill={color} />;
   }
   return <svg width={40} height={40} viewBox="0 0 40 40">{shape}</svg>;
+}
+
+// ── Fretboard input component (guitar & ukulele) ──────────────────────────────
+
+function FretboardInput({
+  stringDefs,
+  frets,
+  markers,
+  onNotePress,
+}: {
+  stringDefs: readonly { readonly name: string; readonly openMidi: number }[];
+  frets: number;
+  markers: Set<number>;
+  onNotePress: (letter: string, octave: number) => void;
+}) {
+  const totalW  = FB_LABEL_W + FB_OPEN_W + FB_NUT_W + frets * FB_FRET_W;
+  const totalH  = stringDefs.length * FB_ROW_H;
+  const inlayCY = Math.floor(stringDefs.length / 2) * FB_ROW_H;
+
+  return (
+    <div className="overflow-x-auto select-none">
+      {/* Fret numbers */}
+      <div className="flex mb-1" style={{ width: totalW }}>
+        <div style={{ width: FB_LABEL_W }} />
+        <div style={{ width: FB_OPEN_W }} className="text-center text-xs text-gray-400">0</div>
+        <div style={{ width: FB_NUT_W }} />
+        {Array.from({ length: frets }, (_, i) => (
+          <div key={i} style={{ width: FB_FRET_W }} className="text-center text-xs text-gray-400">{i + 1}</div>
+        ))}
+      </div>
+
+      {/* Fretboard body */}
+      <div style={{ position: "relative", width: totalW, height: totalH }}>
+
+        {/* Background: string lines */}
+        {stringDefs.map((_, si) => (
+          <div key={si} style={{
+            position: "absolute",
+            left: FB_LABEL_W,
+            top: fbStringCenterY(si),
+            width: totalW - FB_LABEL_W,
+            height: 1 + (stringDefs.length - 1 - si) * 0.2,
+            backgroundColor: "#ccc",
+            pointerEvents: "none",
+          }} />
+        ))}
+
+        {/* Background: nut */}
+        <div style={{
+          position: "absolute",
+          left: FB_LABEL_W + FB_OPEN_W,
+          top: 0,
+          width: FB_NUT_W,
+          height: totalH,
+          backgroundColor: "#555",
+          pointerEvents: "none",
+        }} />
+
+        {/* Background: fret wires */}
+        {Array.from({ length: frets }, (_, i) => (
+          <div key={i} style={{
+            position: "absolute",
+            left: FB_LABEL_W + FB_OPEN_W + FB_NUT_W + (i + 1) * FB_FRET_W,
+            top: 0,
+            width: 1,
+            height: totalH,
+            backgroundColor: "#e5e7eb",
+            pointerEvents: "none",
+          }} />
+        ))}
+
+        {/* Background: inlay dots */}
+        {Array.from({ length: frets }, (_, i) => {
+          const fret = i + 1;
+          const cx = FB_LABEL_W + FB_OPEN_W + FB_NUT_W + (fret - 0.5) * FB_FRET_W;
+          if (fret === 12) return (
+            <React.Fragment key={fret}>
+              <div style={{ position: "absolute", left: cx - 9, top: inlayCY - 4, width: 8, height: 8, borderRadius: 4, backgroundColor: "#ddd", pointerEvents: "none" }} />
+              <div style={{ position: "absolute", left: cx + 1, top: inlayCY - 4, width: 8, height: 8, borderRadius: 4, backgroundColor: "#ddd", pointerEvents: "none" }} />
+            </React.Fragment>
+          );
+          if (!markers.has(fret)) return null;
+          return (
+            <div key={fret} style={{ position: "absolute", left: cx - 4, top: inlayCY - 4, width: 8, height: 8, borderRadius: 4, backgroundColor: "#ddd", pointerEvents: "none" }} />
+          );
+        })}
+
+        {/* Interactive: string labels + buttons */}
+        {stringDefs.map((str, si) => {
+          const top = fbStringTopY(si);
+          return (
+            <div key={si} style={{ position: "absolute", top, left: 0, height: FB_ROW_H, display: "flex", alignItems: "center" }}>
+              <div style={{ width: FB_LABEL_W }} className="text-xs font-bold text-gray-500 text-center shrink-0">{str.name}</div>
+              {(() => {
+                const { letter, octave } = midiToNote(str.openMidi);
+                const color = getNoteColor(letter);
+                return (
+                  <button
+                    onClick={() => onNotePress(letter, octave)}
+                    title={`${displayLetter(letter)}${octave} (avoin)`}
+                    style={{ width: FB_OPEN_W, height: FB_ROW_H }}
+                    className="relative flex items-center justify-center hover:bg-blue-50/70 active:bg-blue-100/70 transition-colors group shrink-0"
+                  >
+                    <div className="relative z-10 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold opacity-20 group-hover:opacity-100 transition-opacity"
+                      style={{ backgroundColor: color }}>
+                      {displayLetter(letter).replace("#", "♯")}
+                    </div>
+                  </button>
+                );
+              })()}
+              <div style={{ width: FB_NUT_W, height: FB_ROW_H, flexShrink: 0 }} />
+              {Array.from({ length: frets }, (_, fi) => {
+                const { letter, octave } = midiToNote(str.openMidi + fi + 1);
+                const color = getNoteColor(letter);
+                return (
+                  <button
+                    key={fi}
+                    onClick={() => onNotePress(letter, octave)}
+                    title={`${displayLetter(letter)}${octave}`}
+                    style={{ width: FB_FRET_W, height: FB_ROW_H }}
+                    className="relative flex items-center justify-center hover:bg-blue-50/70 active:bg-blue-100/70 transition-colors group shrink-0"
+                  >
+                    <div className="relative z-10 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                      style={{ backgroundColor: color }}>
+                      {displayLetter(letter).replace("#", "♯")}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 // ── Sequence item components ──────────────────────────────────────────────────
@@ -215,14 +373,14 @@ function NoteDisplay({
     >
       <button
         onClick={(e) => { e.stopPropagation(); onRemove(); }}
-        aria-label={`Poista ${displayLetter(item.letter)}${item.octave}`}
+        aria-label={`Poista ${noteLabel(item.letter, item.octave)}`}
         className="absolute -top-1 -right-1 w-4 h-4 bg-gray-200 hover:bg-red-100 rounded-full text-gray-500 hover:text-red-500 text-xs hidden group-hover:flex items-center justify-center leading-none z-10"
       >
         ×
       </button>
       <FigureNoteSymbol letter={item.letter} octave={item.octave} />
       <span className="text-xs font-bold" style={{ color }}>
-        {displayLetter(item.letter)}{item.octave}
+        {noteLabel(item.letter, item.octave)}
       </span>
     </div>
   );
@@ -283,7 +441,7 @@ export function PianoNotesSection({ onNotesChange, transpose = 0 }: { onNotesCha
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   const [history, setHistory]         = useState<SeqItem[][]>([]);
   const [previewMode, setPreviewMode] = useState(false);
-  const [inputMode, setInputMode]     = useState<"piano" | "guitar">("piano");
+  const [inputMode, setInputMode]     = useState<"piano" | "guitar" | "ukulele">("piano");
   const [labelInput, setLabelInput]   = useState("");
   const audioCtxRef = useRef<AudioContext | null>(null);
 
@@ -362,8 +520,6 @@ export function PianoNotesSection({ onNotesChange, transpose = 0 }: { onNotesCha
     }
   }
 
-  // ── Key press: replace selected note or append ──────────────────────────
-
   function handleKeyPress(letter: string, octave: number) {
     play(letter, octave);
     if (previewMode) return;
@@ -381,6 +537,12 @@ export function PianoNotesSection({ onNotesChange, transpose = 0 }: { onNotesCha
   const rows = buildRows(items);
   const noteCount = items.filter((i) => i.kind === "note").length;
   const isReplacing = selectedUid !== null;
+
+  const inputHint =
+    previewMode    ? "Esikatselutila — nuotteja ei tallenneta" :
+    isReplacing    ? "Napsauta korvataksesi valittu nuotti" :
+    inputMode !== "piano" ? "Napsauta nauhaa lisätäksesi nuotteja" :
+                   "Napsauta koskettimia lisätäksesi nuotteja";
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm space-y-6" onClick={() => setSelectedUid(null)}>
@@ -413,13 +575,13 @@ export function PianoNotesSection({ onNotesChange, transpose = 0 }: { onNotesCha
         </div>
       </div>
 
-      {/* Input mode + keyboard */}
+      {/* Input mode + instrument */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             {/* Mode switcher */}
             <div className="flex items-center gap-1 bg-gray-100 rounded-full p-0.5">
-              {(["piano", "guitar"] as const).map((mode) => (
+              {(["piano", "guitar", "ukulele"] as const).map((mode) => (
                 <button
                   key={mode}
                   onClick={() => setInputMode(mode)}
@@ -429,32 +591,31 @@ export function PianoNotesSection({ onNotesChange, transpose = 0 }: { onNotesCha
                       : "text-gray-400 hover:text-gray-600"
                   }`}
                 >
-                  {mode === "piano" ? "Piano" : "Kitara"}
+                  {mode === "piano" ? "Piano" : mode === "guitar" ? "Kitara" : "Ukulele"}
                 </button>
               ))}
             </div>
             <p className={`text-xs font-semibold uppercase tracking-wide transition-colors ${
               previewMode ? "text-amber-500" : isReplacing ? "text-blue-500" : "text-gray-400"
             }`}>
-              {previewMode
-                ? "Esikatselutila — nuotteja ei tallenneta"
-                : isReplacing
-                ? "Napsauta korvataksesi valittu nuotti"
-                : inputMode === "guitar"
-                ? "Napsauta nauhaa lisätäksesi nuotteja"
-                : "Napsauta koskettimia lisätäksesi nuotteja"}
+              {inputHint}
             </p>
           </div>
           <button
             onClick={() => setPreviewMode((p) => !p)}
             title={previewMode ? "Poistu esikatselutilasta — koskettimien painallukset tallentuvat taas nuoteiksi" : "Siirry esikatselutilaan — voit soittaa koskettimia tallentamatta nuotteja"}
-            className={`text-xs font-semibold px-3 py-1 rounded-full border transition-colors ${
+            className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full border transition-colors ${
               previewMode
-                ? "bg-amber-50 text-amber-600 border-amber-300"
-                : "bg-gray-50 text-gray-400 border-gray-200 hover:border-gray-300"
+                ? "bg-gray-50 text-gray-400 border-gray-200 hover:border-gray-300"
+                : "bg-red-50 text-red-600 border-red-300"
             }`}
           >
-            {previewMode ? "Esikatselu päällä" : "Esikatselu pois"}
+            {!previewMode && (
+              <svg width={8} height={8} viewBox="0 0 8 8" className="shrink-0">
+                <circle cx={4} cy={4} r={4} fill="currentColor" />
+              </svg>
+            )}
+            {previewMode ? "Nauhoitus pois" : "Nauhoitus päällä"}
           </button>
         </div>
 
@@ -463,7 +624,7 @@ export function PianoNotesSection({ onNotesChange, transpose = 0 }: { onNotesCha
             <div style={{ width: totalKeyboardW }} className="flex mb-1">
               {KEYBOARD_OCTAVES.map((oct) => (
                 <div key={oct} style={{ width: OCTAVE_W }} className="text-xs text-gray-400 font-semibold pl-1">
-                  Oktaavi {oct}
+                  {octaveLabel(oct)}
                 </div>
               ))}
             </div>
@@ -476,7 +637,7 @@ export function PianoNotesSection({ onNotesChange, transpose = 0 }: { onNotesCha
                       <button
                         key={`${letter}${oct}`}
                         onClick={() => handleKeyPress(letter, oct)}
-                        title={`${displayLetter(letter)}${oct}`}
+                        title={noteLabel(letter, oct)}
                         style={{
                           position: "absolute",
                           left: octOffset + i * WHITE_KEY_W,
@@ -486,14 +647,14 @@ export function PianoNotesSection({ onNotesChange, transpose = 0 }: { onNotesCha
                         }}
                         className="bg-white hover:bg-blue-50 active:bg-blue-100 border border-gray-300 rounded-b-md flex items-end justify-center pb-2 text-xs text-gray-500 font-medium transition-colors"
                       >
-                        {letter === "C" ? `C${oct}` : displayLetter(letter)}
+                        {displayLetter(letter)}
                       </button>
                     ))}
                     {BLACK_KEY_OFFSETS.map(({ letter, left }) => (
                       <button
                         key={`${letter}${oct}`}
                         onClick={() => handleKeyPress(letter, oct)}
-                        title={`${letter}${oct}`}
+                        title={noteLabel(letter, oct)}
                         style={{
                           position: "absolute",
                           left: octOffset + left,
@@ -515,123 +676,21 @@ export function PianoNotesSection({ onNotesChange, transpose = 0 }: { onNotesCha
         )}
 
         {inputMode === "guitar" && (
-          <div className="overflow-x-auto select-none">
-            {/* Fret numbers */}
-            <div className="flex mb-1" style={{ width: FB_TOTAL_W }}>
-              <div style={{ width: FB_LABEL_W }} />
-              <div style={{ width: FB_OPEN_W }} className="text-center text-xs text-gray-400">0</div>
-              <div style={{ width: FB_NUT_W }} />
-              {Array.from({ length: GUITAR_FRETS }, (_, i) => (
-                <div key={i} style={{ width: FB_FRET_W }} className="text-center text-xs text-gray-400">{i + 1}</div>
-              ))}
-            </div>
+          <FretboardInput
+            stringDefs={GUITAR_STRING_DEFS}
+            frets={GUITAR_FRETS}
+            markers={GUITAR_MARKERS}
+            onNotePress={handleKeyPress}
+          />
+        )}
 
-            {/* Fretboard body — background layer + button layer */}
-            <div style={{ position: "relative", width: FB_TOTAL_W, height: FB_TOTAL_H }}>
-
-              {/* ── Background: continuous string lines ── */}
-              {GUITAR_STRING_DEFS.map((_, si) => (
-                <div key={si} style={{
-                  position: "absolute",
-                  left: FB_LABEL_W,
-                  top: fbStringCenterY(si),
-                  width: FB_TOTAL_W - FB_LABEL_W,
-                  height: 1 + (5 - si) * 0.2,
-                  backgroundColor: "#ccc",
-                  pointerEvents: "none",
-                }} />
-              ))}
-
-              {/* ── Background: nut ── */}
-              <div style={{
-                position: "absolute",
-                left: FB_LABEL_W + FB_OPEN_W,
-                top: 0,
-                width: FB_NUT_W,
-                height: FB_TOTAL_H,
-                backgroundColor: "#555",
-                pointerEvents: "none",
-              }} />
-
-              {/* ── Background: fret wires ── */}
-              {Array.from({ length: GUITAR_FRETS }, (_, i) => (
-                <div key={i} style={{
-                  position: "absolute",
-                  left: FB_LABEL_W + FB_OPEN_W + FB_NUT_W + (i + 1) * FB_FRET_W,
-                  top: 0,
-                  width: 1,
-                  height: FB_TOTAL_H,
-                  backgroundColor: "#e5e7eb",
-                  pointerEvents: "none",
-                }} />
-              ))}
-
-              {/* ── Background: inlay dots — midpoint between G (si=2) and D (si=3) ── */}
-              {Array.from({ length: GUITAR_FRETS }, (_, i) => {
-                const fret = i + 1;
-                const inlayCY = 3 * FB_ROW_H;
-                const cx = FB_LABEL_W + FB_OPEN_W + FB_NUT_W + (fret - 0.5) * FB_FRET_W;
-                if (fret === 12) return (
-                  <React.Fragment key={fret}>
-                    <div style={{ position: "absolute", left: cx - 9, top: inlayCY - 4, width: 8, height: 8, borderRadius: 4, backgroundColor: "#ddd", pointerEvents: "none" }} />
-                    <div style={{ position: "absolute", left: cx + 1, top: inlayCY - 4, width: 8, height: 8, borderRadius: 4, backgroundColor: "#ddd", pointerEvents: "none" }} />
-                  </React.Fragment>
-                );
-                if (!FB_MARKERS.has(fret)) return null;
-                return <div key={fret} style={{ position: "absolute", left: cx - 4, top: inlayCY - 4, width: 8, height: 8, borderRadius: 4, backgroundColor: "#ddd", pointerEvents: "none" }} />;
-              })}
-
-              {/* ── Interactive: string labels + buttons ── */}
-              {GUITAR_STRING_DEFS.map((str, si) => {
-                const top = fbStringTopY(si);
-                return (
-                  <div key={si} style={{ position: "absolute", top, left: 0, height: FB_ROW_H, display: "flex", alignItems: "center" }}>
-                    {/* String name */}
-                    <div style={{ width: FB_LABEL_W }} className="text-xs font-bold text-gray-500 text-center shrink-0">{str.name}</div>
-                    {/* Open string */}
-                    {(() => {
-                      const { letter, octave } = midiToNote(str.openMidi);
-                      const color = getNoteColor(letter);
-                      return (
-                        <button
-                          onClick={() => handleKeyPress(letter, octave)}
-                          title={`${displayLetter(letter)}${octave} (avoin)`}
-                          style={{ width: FB_OPEN_W, height: FB_ROW_H }}
-                          className="relative flex items-center justify-center hover:bg-blue-50/70 active:bg-blue-100/70 transition-colors group shrink-0"
-                        >
-                          <div className="relative z-10 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold opacity-20 group-hover:opacity-100 transition-opacity"
-                            style={{ backgroundColor: color }}>
-                            {displayLetter(letter).replace("#", "♯")}
-                          </div>
-                        </button>
-                      );
-                    })()}
-                    {/* Nut spacer */}
-                    <div style={{ width: FB_NUT_W, height: FB_ROW_H, flexShrink: 0 }} />
-                    {/* Fretted positions */}
-                    {Array.from({ length: GUITAR_FRETS }, (_, fi) => {
-                      const { letter, octave } = midiToNote(str.openMidi + fi + 1);
-                      const color = getNoteColor(letter);
-                      return (
-                        <button
-                          key={fi}
-                          onClick={() => handleKeyPress(letter, octave)}
-                          title={`${displayLetter(letter)}${octave}`}
-                          style={{ width: FB_FRET_W, height: FB_ROW_H }}
-                          className="relative flex items-center justify-center hover:bg-blue-50/70 active:bg-blue-100/70 transition-colors group shrink-0"
-                        >
-                          <div className="relative z-10 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity"
-                            style={{ backgroundColor: color }}>
-                            {displayLetter(letter).replace("#", "♯")}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+        {inputMode === "ukulele" && (
+          <FretboardInput
+            stringDefs={UKULELE_STRING_DEFS}
+            frets={UKE_FRETS}
+            markers={UKE_MARKERS}
+            onNotePress={handleKeyPress}
+          />
         )}
       </div>
 

@@ -118,11 +118,11 @@ export function ChordSheet({ data, transpose, onTransposeChange, activeInstrumen
               </span>
             )}
           </div>
-          {progression.sequence.map((name) => {
+          {progression.sequence.map((name, i) => {
             const chord = chordMap.get(name);
             return (
               <div
-                key={name}
+                key={i}
                 className="rounded-full px-3 py-1 font-bold text-sm text-center text-white shadow-sm"
                 style={{ backgroundColor: chord?.color ?? "#999" }}
               >
@@ -137,11 +137,11 @@ export function ChordSheet({ data, transpose, onTransposeChange, activeInstrumen
               <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide self-start pt-3">
                 {label}
               </div>
-              {progression.sequence.map((name) => {
+              {progression.sequence.map((name, i) => {
                 const d = diagrams.find((d) => d.chord === name && d.instrument === key);
                 return (
                   <div
-                    key={`${key}-${name}`}
+                    key={i}
                     className="flex justify-center"
                     dangerouslySetInnerHTML={{ __html: d?.svg ?? "" }}
                   />
