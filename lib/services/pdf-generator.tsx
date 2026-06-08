@@ -33,10 +33,11 @@ const styles = StyleSheet.create({
   footerText:        { fontSize: 8, color: "#aaa" },
 });
 
-const INSTRUMENTS = [
+const ALL_PDF_INSTRUMENTS = [
   { key: "guitar",  label: "Kitara"  },
   { key: "ukulele", label: "Ukulele" },
   { key: "piano",   label: "Piano"   },
+  { key: "bass",    label: "Basso"   },
 ] as const;
 
 // ── Encoding helper (works in browser and Node.js) ─────────────────────────────
@@ -212,11 +213,15 @@ export interface PdfProps {
   chords: Chord[];
   diagrams: ChordDiagram[];
   pianoNotes?: PianoSeqItem[];
+  activeInstruments?: string[];
 }
 
-function PdfDocument({ song, progression, chords, diagrams, pianoNotes }: PdfProps) {
+function PdfDocument({ song, progression, chords, diagrams, pianoNotes, activeInstruments }: PdfProps) {
   const chordMap = new Map(chords.map((c) => [c.name, c]));
   const timestamp = new Date().toISOString().slice(0, 19).replace("T", " ");
+  const instruments = (activeInstruments ?? [])
+    .map((key) => ALL_PDF_INSTRUMENTS.find((i) => i.key === key))
+    .filter((i): i is typeof ALL_PDF_INSTRUMENTS[number] => i !== undefined);
 
   const n = progression.sequence.length;
   const colW = Math.max(40, Math.floor((USABLE_W - n * COL_GAP) / n));
@@ -248,7 +253,7 @@ function PdfDocument({ song, progression, chords, diagrams, pianoNotes }: PdfPro
           </View>
 
           {/* Instrument diagram sections */}
-          {INSTRUMENTS.map(({ key, label }) => (
+          {instruments.map(({ key, label }) => (
             <View key={key}>
               <View style={styles.sectionHeaderWrap}>
                 <Text style={styles.sectionHeaderText}>{label}</Text>

@@ -18,7 +18,7 @@ export interface Chord {
 
 export interface ChordDiagram {
   chord: string;
-  instrument: "guitar" | "ukulele" | "piano";
+  instrument: "guitar" | "ukulele" | "piano" | "bass";
   svg: string;
 }
 

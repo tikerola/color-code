@@ -25,6 +25,7 @@ function buildChordData(title: string, subtitle: string, chords: string[]): Prev
       ...unique.map((name) => getChordDiagram(name, "guitar")),
       ...unique.map((name) => getChordDiagram(name, "ukulele")),
       ...unique.map((name) => getChordDiagram(name, "piano")),
+      ...unique.map((name) => getChordDiagram(name, "bass")),
     ],
   };
 }
@@ -36,6 +37,7 @@ interface ManualChordsSectionProps {
 }
 
 export function ManualChordsSection({ pianoNotes, transpose, onTransposeChange }: ManualChordsSectionProps) {
+  const [activeInstruments, setActiveInstruments] = useState<string[]>([]);
   const [chordsInput, setChordsInput]           = useState("");
   const [titleInput, setTitleInput]             = useState("");
   const [subtitleInput, setSubtitleInput]       = useState("");
@@ -65,7 +67,7 @@ export function ManualChordsSection({ pianoNotes, transpose, onTransposeChange }
     try {
       const raw = buildChordData(submittedTitle, submittedSubtitle, submittedChords);
       const transposed = applyTransposition(raw, transpose);
-      const blob = await generatePdfBlob({ ...transposed, pianoNotes: transposePianoNotes(pianoNotes ?? [], transpose) });
+      const blob = await generatePdfBlob({ ...transposed, pianoNotes: transposePianoNotes(pianoNotes ?? [], transpose), activeInstruments });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
       a.download = `${submittedTitle.replace(/[^a-zA-Z0-9_\- ]/g, "").trim() || "chord-sheet"}.pdf`;
@@ -92,6 +94,7 @@ export function ManualChordsSection({ pianoNotes, transpose, onTransposeChange }
             value={chordsInput}
             onChange={(e) => setChordsInput(e.target.value)}
             placeholder="esim.  C  Am  F  G  Em  Dm"
+            title="Soinnut välilyönnillä tai pilkulla erotettuna, esim. C Am F G Em Dm"
             className="flex-1 rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             required
           />
@@ -100,6 +103,7 @@ export function ManualChordsSection({ pianoNotes, transpose, onTransposeChange }
             value={titleInput}
             onChange={(e) => setTitleInput(e.target.value)}
             placeholder="Otsikko (valinnainen)"
+            title="Kappaleen otsikko — näkyy PDF:n yläreunassa"
             className="sm:w-44 rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <input
@@ -107,10 +111,12 @@ export function ManualChordsSection({ pianoNotes, transpose, onTransposeChange }
             value={subtitleInput}
             onChange={(e) => setSubtitleInput(e.target.value)}
             placeholder="Alaotsikko / tekijät (valinnainen)"
+            title="Alaotsikko tai tekijätiedot — näkyy otsikon alla PDF:ssä"
             className="sm:w-52 rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             type="submit"
+            title="Luo sointukaaviot syötetyistä soinnuista"
             className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
           >
             Luo
@@ -129,6 +135,8 @@ export function ManualChordsSection({ pianoNotes, transpose, onTransposeChange }
           data={data}
           transpose={transpose}
           onTransposeChange={onTransposeChange}
+          activeInstruments={activeInstruments}
+          onActiveInstrumentsChange={setActiveInstruments}
           onDownload={handleDownload}
           downloading={downloading}
         />

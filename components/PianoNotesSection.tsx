@@ -346,6 +346,7 @@ export function PianoNotesSection({ onNotesChange, transpose = 0 }: { onNotesCha
           {history.length > 0 && (
             <button
               onClick={undo}
+              title="Kumoa viimeisin muutos"
               className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
             >
               ↩ Kumoa
@@ -354,6 +355,7 @@ export function PianoNotesSection({ onNotesChange, transpose = 0 }: { onNotesCha
           {items.length > 0 && (
             <button
               onClick={() => { snapshot(); setItems([]); setSelectedUid(null); }}
+              title="Poista kaikki nuotit, tahtiviivat ja toistot"
               className="text-sm text-red-400 hover:text-red-600 transition-colors"
             >
               Tyhjennä kaikki
@@ -376,6 +378,7 @@ export function PianoNotesSection({ onNotesChange, transpose = 0 }: { onNotesCha
           </p>
           <button
             onClick={() => setPreviewMode((p) => !p)}
+            title={previewMode ? "Poistu esikatselutilasta — koskettimien painallukset tallentuvat taas nuoteiksi" : "Siirry esikatselutilaan — voit soittaa koskettimia tallentamatta nuotteja"}
             className={`text-xs font-semibold px-3 py-1 rounded-full border transition-colors ${
               previewMode
                 ? "bg-amber-50 text-amber-600 border-amber-300"
@@ -446,6 +449,7 @@ export function PianoNotesSection({ onNotesChange, transpose = 0 }: { onNotesCha
 
         <button
           onClick={() => insertAfterSelected({ kind: "barline", uid: uid() })}
+          title="Lisää tahtiviiva sarjaan — erottaa tahteja toisistaan"
           className="flex items-center gap-1.5 text-sm text-gray-600 border border-gray-300 hover:bg-gray-50 rounded-lg px-3 py-1.5 transition-colors"
         >
           <span className="font-bold text-gray-400 text-base leading-none">|</span>
@@ -459,10 +463,12 @@ export function PianoNotesSection({ onNotesChange, transpose = 0 }: { onNotesCha
             value={repeatCount}
             onChange={(e) => setRepeatCount(Math.max(2, parseInt(e.target.value) || 2))}
             min={2}
+            title="Toistomäärä — kuinka monta kertaa edellinen osio toistetaan"
             className="w-10 text-center border border-gray-200 rounded text-sm font-semibold text-gray-700 focus:outline-none focus:border-blue-400"
           />
           <button
             onClick={() => insertAfterSelected({ kind: "repeat", count: repeatCount, uid: uid() })}
+            title={`Lisää toistomerkki — toistaa edellisen osion ${repeatCount} kertaa`}
             className="text-sm text-gray-600 hover:text-gray-900 font-medium transition-colors"
           >
             Toisto
@@ -471,6 +477,7 @@ export function PianoNotesSection({ onNotesChange, transpose = 0 }: { onNotesCha
 
         <button
           onClick={addLineBreak}
+          title="Lisää rivinvaihto — aloittaa uuden rivin nuottisarjassa"
           className="flex items-center gap-1.5 text-sm text-gray-600 border border-gray-300 hover:bg-gray-50 rounded-lg px-3 py-1.5 transition-colors"
         >
           ↵ Uusi rivi

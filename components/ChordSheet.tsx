@@ -7,18 +7,32 @@ interface Props {
   data: PreviewResponse;
   transpose: number;
   onTransposeChange: (n: number) => void;
+  activeInstruments: string[];
+  onActiveInstrumentsChange: (v: string[]) => void;
   onDownload?: (transpose: number) => void;
   downloading?: boolean;
 }
 
-const INSTRUMENTS = [
+const ALL_INSTRUMENTS = [
   { key: "guitar",  label: "Kitara"  },
   { key: "ukulele", label: "Ukulele" },
   { key: "piano",   label: "Piano"   },
+  { key: "bass",    label: "Basso"   },
 ] as const;
 
-export function ChordSheet({ data, transpose, onTransposeChange, onDownload, downloading }: Props) {
+export function ChordSheet({ data, transpose, onTransposeChange, activeInstruments, onActiveInstrumentsChange, onDownload, downloading }: Props) {
   const setTranspose = onTransposeChange;
+  const instruments = activeInstruments
+    .map((key) => ALL_INSTRUMENTS.find((i) => i.key === key))
+    .filter((i): i is typeof ALL_INSTRUMENTS[number] => i !== undefined);
+
+  function toggleInstrument(key: string) {
+    onActiveInstrumentsChange(
+      activeInstruments.includes(key)
+        ? activeInstruments.filter((k) => k !== key)
+        : [...activeInstruments, key]
+    );
+  }
 
   const { song, progression, chords, diagrams } = useMemo(
     () => applyTransposition(data, transpose),
@@ -51,16 +65,21 @@ export function ChordSheet({ data, transpose, onTransposeChange, onDownload, dow
               onClick={() => setTranspose(Math.max(-11, transpose - 1))}
               className="w-7 h-7 rounded-full border border-gray-300 hover:bg-gray-100 text-gray-600 font-bold flex items-center justify-center transition-colors"
               aria-label="Transponoi alas"
+              title="Transponoi puolisävelaskel alaspäin"
             >
               −
             </button>
-            <span className="w-16 text-center text-sm font-semibold text-gray-700">
+            <span
+              className="w-16 text-center text-sm font-semibold text-gray-700"
+              title={transpose === 0 ? "Alkuperäinen sävelkorkeus" : `Transponoitu ${transpose > 0 ? "+" : ""}${transpose} puolisävelaskelta`}
+            >
               {transposeLabel}
             </span>
             <button
               onClick={() => setTranspose(Math.min(11, transpose + 1))}
               className="w-7 h-7 rounded-full border border-gray-300 hover:bg-gray-100 text-gray-600 font-bold flex items-center justify-center transition-colors"
               aria-label="Transponoi ylös"
+              title="Transponoi puolisävelaskel ylöspäin"
             >
               +
             </button>
@@ -72,6 +91,7 @@ export function ChordSheet({ data, transpose, onTransposeChange, onDownload, dow
               onClick={() => onDownload(transpose)}
               disabled={downloading}
               className="shrink-0 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors"
+              title="Lataa sointukortti PDF-tiedostona"
             >
               {downloading ? <><Spinner /> Luodaan PDF…</> : <><DownloadIcon /> Lataa PDF</>}
             </button>
@@ -108,7 +128,7 @@ export function ChordSheet({ data, transpose, onTransposeChange, onDownload, dow
           })}
 
           {/* Instrument rows */}
-          {INSTRUMENTS.map(({ key, label }) => (
+          {instruments.map(({ key, label }) => (
             <React.Fragment key={key}>
               <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide self-start pt-3">
                 {label}
@@ -125,6 +145,28 @@ export function ChordSheet({ data, transpose, onTransposeChange, onDownload, dow
               })}
             </React.Fragment>
           ))}
+        </div>
+
+        {/* Instrument toggles */}
+        <div className="flex items-center gap-2 flex-wrap mt-5 pt-4 border-t border-gray-100">
+          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide mr-1">Instrumentit:</span>
+          {ALL_INSTRUMENTS.map(({ key, label }) => {
+            const active = activeInstruments.includes(key);
+            return (
+              <button
+                key={key}
+                onClick={() => toggleInstrument(key)}
+                title={active ? `Piilota ${label}-kaaviot` : `Näytä ${label}-kaaviot`}
+                className={`text-xs font-semibold px-3 py-1 rounded-full border transition-colors ${
+                  active
+                    ? "bg-gray-800 text-white border-gray-800"
+                    : "bg-white text-gray-400 border-gray-300 hover:border-gray-400 hover:text-gray-600"
+                }`}
+              >
+                {active ? `− ${label}` : `+ ${label}`}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

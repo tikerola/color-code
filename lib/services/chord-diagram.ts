@@ -279,7 +279,79 @@ function findChordPos(
   return undefined;
 }
 
-export function getChordDiagram(chordName: string, instrument: "guitar" | "ukulele" | "piano"): ChordDiagram {
+function bassSvg(pos: ChordPosition): string {
+  const strings = 4;
+  const w = 80, h = 116;
+  const padLeft = 18, padTop = 14, padRight = 10;
+  const colW = (w - padLeft - padRight) / (strings - 1);
+  const rowH = (h - padTop - 12) / FRET_ROWS;
+  const minFret = Math.min(...pos.frets.filter((f) => f > 0));
+  const displayBase = pos.frets.some((f) => f > FRET_ROWS) ? minFret : 1;
+
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">`;
+
+  if (displayBase === 1) {
+    svg += `<rect x="${padLeft}" y="${padTop}" width="${(strings - 1) * colW}" height="4" fill="black"/>`;
+  } else {
+    svg += `<text x="${padLeft - 4}" y="${padTop + rowH * 0.6}" text-anchor="end" font-size="8" font-family="Helvetica">${displayBase}fr</text>`;
+  }
+
+  for (let f = 0; f <= FRET_ROWS; f++) {
+    const y = padTop + (displayBase === 1 ? 4 : 0) + f * rowH;
+    svg += `<line x1="${padLeft}" y1="${y}" x2="${padLeft + (strings - 1) * colW}" y2="${y}" stroke="#999" stroke-width="1"/>`;
+  }
+
+  for (let s = 0; s < strings; s++) {
+    const x = padLeft + s * colW;
+    const topY = padTop + (displayBase === 1 ? 4 : 0);
+    svg += `<line x1="${x}" y1="${topY}" x2="${x}" y2="${topY + FRET_ROWS * rowH}" stroke="#555" stroke-width="1.2"/>`;
+  }
+
+  const BASS_STRINGS = ["E", "A", "D", "G"];
+  for (let s = 0; s < strings; s++) {
+    svg += `<text x="${padLeft + s * colW}" y="${h - 2}" text-anchor="middle" font-size="7" fill="#aaa" font-family="Helvetica">${BASS_STRINGS[s]}</text>`;
+  }
+
+  for (let s = 0; s < strings; s++) {
+    const fret = pos.frets[s];
+    const x = padLeft + s * colW;
+    if (fret === -1) {
+      svg += `<text x="${x}" y="${padTop - 4}" text-anchor="middle" font-size="10" fill="#c00" font-family="Helvetica">✕</text>`;
+    } else if (fret === 0) {
+      svg += `<circle cx="${x}" cy="${padTop - 5}" r="4" fill="none" stroke="#555" stroke-width="1.2"/>`;
+    } else {
+      const relFret = fret - displayBase + 1;
+      if (relFret >= 1 && relFret <= FRET_ROWS) {
+        const y = padTop + (displayBase === 1 ? 4 : 0) + (relFret - 0.5) * rowH;
+        svg += `<circle cx="${x}" cy="${y}" r="${rowH * 0.3}" fill="#333"/>`;
+      }
+    }
+  }
+
+  svg += `</svg>`;
+  return svg;
+}
+
+function fallbackBassChord(name: string): ChordPosition {
+  const root = parseRoot(name);
+  const semi = NOTE_ORDER.indexOf(normalizeNote(root));
+  if (semi === -1) return { frets: [-1, -1, -1, -1] };
+  // Bass strings (low to high): E(4), A(9), D(2+12=14→2)
+  const eFret = (semi - 4 + 12) % 12;
+  const aFret = (semi - 9 + 12) % 12;
+  const dFret = (semi - 2 + 12) % 12;
+  if (eFret === 0) return { frets: [0, -1, -1, -1] };
+  if (aFret === 0) return { frets: [-1, 0, -1, -1] };
+  if (dFret === 0) return { frets: [-1, -1, 0, -1] };
+  const best = [
+    { frets: [eFret, -1, -1, -1] as number[], pos: eFret },
+    { frets: [-1, aFret, -1, -1] as number[], pos: aFret },
+    { frets: [-1, -1, dFret, -1] as number[], pos: dFret },
+  ].sort((a, b) => a.pos - b.pos)[0];
+  return { frets: best.frets };
+}
+
+export function getChordDiagram(chordName: string, instrument: "guitar" | "ukulele" | "piano" | "bass"): ChordDiagram {
   let svg: string;
 
   if (instrument === "piano") {
@@ -287,6 +359,8 @@ export function getChordDiagram(chordName: string, instrument: "guitar" | "ukule
   } else if (instrument === "guitar") {
     const pos = findChordPos(GUITAR_CHORDS, chordName) ?? fallbackGuitarChord(chordName);
     svg = guitarSvg(chordName, pos);
+  } else if (instrument === "bass") {
+    svg = bassSvg(fallbackBassChord(chordName));
   } else {
     const pos = findChordPos(UKULELE_CHORDS, chordName) ?? fallbackUkuleleChord(chordName);
     svg = ukuleleSvg(chordName, pos);
