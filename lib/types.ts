@@ -1,5 +1,6 @@
 export interface Song {
   title: string;
+  subtitle?: string;
   artist: string;
   url: string;
   chords: string[];

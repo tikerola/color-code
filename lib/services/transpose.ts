@@ -1,4 +1,4 @@
-import type { Chord, ChordDiagram, PreviewResponse } from "../types";
+import type { Chord, ChordDiagram, PreviewResponse, PianoSeqItem } from "../types";
 import { getChordColor } from "./chord-colors";
 import { getChordDiagram } from "./chord-diagram";
 
@@ -21,6 +21,20 @@ export function transposeChord(chord: string, semitones: number): string {
   if (idx === -1) return chord;
   const newIdx = ((idx + semitones) % 12 + 12) % 12;
   return CHROMATIC[newIdx] + quality;
+}
+
+export function transposePianoNotes(notes: PianoSeqItem[], semitones: number): PianoSeqItem[] {
+  if (semitones === 0) return notes;
+  return notes.map((item) => {
+    if (item.kind !== "note") return item;
+    const normalized = FLAT_NORMALIZE[item.letter] ?? item.letter;
+    const idx = CHROMATIC.indexOf(normalized as typeof CHROMATIC[number]);
+    if (idx === -1) return item;
+    const rawNewIdx = idx + semitones;
+    const octaveShift = Math.floor(rawNewIdx / 12);
+    const newIdx = ((rawNewIdx % 12) + 12) % 12;
+    return { ...item, letter: CHROMATIC[newIdx], octave: item.octave + octaveShift };
+  });
 }
 
 export function applyTransposition(data: PreviewResponse, semitones: number): PreviewResponse {

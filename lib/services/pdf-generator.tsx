@@ -10,31 +10,31 @@ import {
 import type { Chord, ChordDiagram, PianoSeqItem, Progression, Song } from "../types";
 import { getNoteColor } from "./chord-colors";
 
-const LABEL_W = 48;
-const COL_GAP = 12;
-const PAGE_PAD = 32;
+const COL_GAP = 10;
+const PAGE_PAD = 24;
 const A4_W = 595;
-const USABLE_W = A4_W - 2 * PAGE_PAD; // 531pt
+const USABLE_W = A4_W - 2 * PAGE_PAD; // 547pt
 
 const styles = StyleSheet.create({
   page:              { padding: PAGE_PAD, fontFamily: "Helvetica", backgroundColor: "#fff" },
-  header:            { marginBottom: 20 },
-  title:             { fontSize: 20, fontWeight: "bold", marginBottom: 2 },
-  artist:            { fontSize: 13, color: "#555", marginBottom: 2 },
+  header:            { marginBottom: 10, paddingBottom: 8, borderBottomWidth: 0.75, borderBottomColor: "#e0e0e0" },
+  title:             { fontSize: 18, fontWeight: "bold", marginBottom: 2, color: "#111" },
+  subtitle:          { fontSize: 12, color: "#555", marginBottom: 2 },
+  artist:            { fontSize: 11, color: "#555", marginBottom: 1 },
   url:               { fontSize: 8, color: "#999" },
-  labelCell:         { width: LABEL_W },
-  rowLabel:          { fontSize: 8, fontWeight: "bold", color: "#888", textTransform: "uppercase", paddingTop: 6 },
-  progressionLabel:  { fontSize: 8, fontWeight: "bold", color: "#aaa", textTransform: "uppercase" },
+  sectionHeaderWrap: { marginTop: 10, marginBottom: 5, borderBottomWidth: 0.5, borderBottomColor: "#ddd", paddingBottom: 3 },
+  sectionHeaderText: { fontSize: 8, fontWeight: "bold", color: "#666", textTransform: "uppercase" },
   repeatNote:        { fontSize: 7, color: "#bbb" },
-  chordBox:          { borderWidth: 4, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 3, alignItems: "center", minWidth: 32 },
-  chordLabel:        { fontSize: 13, fontWeight: "bold" },
-  footer:            { position: "absolute", bottom: 16, left: 32, right: 32, flexDirection: "row", justifyContent: "space-between" },
+  chordBox:          { borderWidth: 3, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2, alignItems: "center", minWidth: 28 },
+  chordLabel:        { fontSize: 11, fontWeight: "bold" },
+  melodyHeaderWrap:  { marginTop: 6, marginBottom: 4 },
+  melodyHeaderText:  { fontSize: 7, fontWeight: "bold", color: "#888", textTransform: "uppercase" },
+  footer:            { position: "absolute", bottom: 14, left: 24, right: 24, flexDirection: "row", justifyContent: "space-between" },
   footerText:        { fontSize: 8, color: "#aaa" },
-  pianoHeader:       { fontSize: 10, fontWeight: "bold", color: "#888", textTransform: "uppercase", marginBottom: 8 },
 });
 
 const INSTRUMENTS = [
-  { key: "guitar",  label: "Guitar"  },
+  { key: "guitar",  label: "Kitara"  },
   { key: "ukulele", label: "Ukulele" },
   { key: "piano",   label: "Piano"   },
 ] as const;
@@ -69,9 +69,9 @@ function pianoNoteDataUri(letter: string, octave: number): string {
 // ── Keyboard SVG ───────────────────────────────────────────────────────────────
 
 const KB_WKW = 36;
-const KB_WKH = 80;
+const KB_WKH = 60;
 const KB_BKW = 22;
-const KB_BKH = 50;
+const KB_BKH = 37;
 const KB_OCT_W = KB_WKW * 7;
 const KB_TOTAL_W = KB_OCT_W * 2;
 
@@ -92,11 +92,17 @@ function keyboardSvgDataUri(notes: PianoSeqItem[]): string {
 
   function symbolOnKey(cx: number, cy: number, r: number, letter: string, octave: number): string {
     const color = getNoteColor(letter);
+    const fs = letter.length > 1 ? (r < 8 ? 4 : 5) : (r < 8 ? 5 : 6);
+    const tx = `text-anchor="middle" font-size="${fs}" fill="white" font-weight="bold" font-family="Helvetica"`;
     if (octave === 1) {
-      return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}" stroke="white" stroke-width="0.8"/>`;
+      const ty = cy + fs * 0.38;
+      return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}" stroke="white" stroke-width="0.8"/>`
+           + `<text x="${cx}" y="${ty}" ${tx}>${letter}</text>`;
     }
     const pts = `${cx},${cy - r} ${cx + r * 1.2},${cy + r} ${cx - r * 1.2},${cy + r}`;
-    return `<polygon points="${pts}" fill="${color}" stroke="white" stroke-width="0.8"/>`;
+    const ty = cy + r / 3 + fs * 0.38;
+    return `<polygon points="${pts}" fill="${color}" stroke="white" stroke-width="0.8"/>`
+         + `<text x="${cx}" y="${ty}" ${tx}>${letter}</text>`;
   }
 
   let out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${KB_TOTAL_W} ${KB_WKH}" width="${KB_TOTAL_W}" height="${KB_WKH}">`;
@@ -119,7 +125,7 @@ function keyboardSvgDataUri(notes: PianoSeqItem[]): string {
       if (!active.has(`${letter}${oct}`)) continue;
       const cx = ox + i * KB_WKW + (KB_WKW - 1) / 2;
       const cy = KB_BKH + (KB_WKH - KB_BKH) / 2;
-      out += symbolOnKey(cx, cy, 12, letter, oct);
+      out += symbolOnKey(cx, cy, 9, letter, oct);
     }
 
     for (const { letter, x: bx } of BLACK_KEY_DEFS) {
@@ -129,7 +135,7 @@ function keyboardSvgDataUri(notes: PianoSeqItem[]): string {
     for (const { letter, x: bx } of BLACK_KEY_DEFS) {
       if (!active.has(`${letter}${oct}`)) continue;
       const cx = ox + bx + KB_BKW / 2;
-      out += symbolOnKey(cx, KB_BKH - 10, 8, letter, oct);
+      out += symbolOnKey(cx, KB_BKH - 7, 6, letter, oct);
     }
   }
 
@@ -156,17 +162,22 @@ function PianoNotesPdfSection({ notes }: { notes: PianoSeqItem[] }) {
   if (rows.length === 0) return null;
 
   return (
-    <View style={{ marginTop: 20 }}>
-      <Text style={styles.pianoHeader}>Piano Note Sequence</Text>
-      <Image src={keyboardSvgDataUri(notes)} style={{ width: KB_TOTAL_W, height: KB_WKH, marginBottom: 10 }} />
+    <View>
+      <View style={styles.sectionHeaderWrap}>
+        <Text style={styles.sectionHeaderText}>Kuvionuottisarja</Text>
+      </View>
+      <Image src={keyboardSvgDataUri(notes)} style={{ width: KB_TOTAL_W, height: KB_WKH, marginBottom: 2 }} />
+      <View style={styles.melodyHeaderWrap}>
+        <Text style={styles.melodyHeaderText}>Melodia</Text>
+      </View>
       {rows.map((row, rowIdx) => (
-        <View key={rowIdx} style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
+        <View key={rowIdx} style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", marginBottom: 5 }}>
           {row.map((item, idx) => {
             if (item.kind === "note") {
               const color = getNoteColor(item.letter);
               return (
                 <View key={idx} style={{ alignItems: "center", marginRight: 6 }}>
-                  <Image src={pianoNoteDataUri(item.letter, item.octave)} style={{ width: 26, height: 26 }} />
+                  <Image src={pianoNoteDataUri(item.letter, item.octave)} style={{ width: 22, height: 22 }} />
                   <Text style={{ fontSize: 7, color, fontWeight: "bold", marginTop: 1 }}>
                     {item.letter}{item.octave}
                   </Text>
@@ -175,7 +186,7 @@ function PianoNotesPdfSection({ notes }: { notes: PianoSeqItem[] }) {
             }
             if (item.kind === "barline") {
               return (
-                <View key={idx} style={{ width: 1.5, height: 38, backgroundColor: "#888", marginHorizontal: 4, alignSelf: "center" }} />
+                <View key={idx} style={{ width: 1.5, height: 30, backgroundColor: "#888", marginHorizontal: 4, alignSelf: "center" }} />
               );
             }
             if (item.kind === "repeat") {
@@ -208,26 +219,22 @@ function PdfDocument({ song, progression, chords, diagrams, pianoNotes }: PdfPro
   const timestamp = new Date().toISOString().slice(0, 19).replace("T", " ");
 
   const n = progression.sequence.length;
-  const colW = Math.max(40, Math.floor((USABLE_W - LABEL_W - n * COL_GAP) / n));
-  const diagH = Math.round(colW * 1.18);
+  const colW = Math.max(40, Math.floor((USABLE_W - n * COL_GAP) / n));
+  const diagH = colW;
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <Text style={styles.title}>{song.title}</Text>
+          {song.subtitle ? <Text style={styles.subtitle}>{song.subtitle}</Text> : null}
           <Text style={styles.artist}>{song.artist}</Text>
           <Text style={styles.url}>{song.url}</Text>
         </View>
 
         <View style={{ flexDirection: "column" }}>
-          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 6, gap: COL_GAP }}>
-            <View style={styles.labelCell}>
-              <Text style={styles.progressionLabel}>Chords</Text>
-              {progression.repeatCount > 1 && (
-                <Text style={styles.repeatNote}>×{progression.repeatCount}</Text>
-              )}
-            </View>
+          {/* Chords */}
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4, gap: COL_GAP }}>
             {progression.sequence.map((name) => {
               const chord = chordMap.get(name) ?? { name, color: "#333" };
               return (
@@ -240,19 +247,22 @@ function PdfDocument({ song, progression, chords, diagrams, pianoNotes }: PdfPro
             })}
           </View>
 
+          {/* Instrument diagram sections */}
           {INSTRUMENTS.map(({ key, label }) => (
-            <View key={key} style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 4, gap: COL_GAP }}>
-              <View style={styles.labelCell}>
-                <Text style={styles.rowLabel}>{label}</Text>
+            <View key={key}>
+              <View style={styles.sectionHeaderWrap}>
+                <Text style={styles.sectionHeaderText}>{label}</Text>
               </View>
-              {progression.sequence.map((name) => {
-                const d = diagrams.find((d) => d.chord === name && d.instrument === key);
-                return (
-                  <View key={name} style={{ width: colW, alignItems: "center" }}>
-                    {d && <Image src={svgToDataUri(d.svg)} style={{ width: colW, height: diagH }} />}
-                  </View>
-                );
-              })}
+              <View style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 2, gap: COL_GAP }}>
+                {progression.sequence.map((name) => {
+                  const d = diagrams.find((d) => d.chord === name && d.instrument === key);
+                  return (
+                    <View key={name} style={{ width: colW, alignItems: "center" }}>
+                      {d && <Image src={svgToDataUri(d.svg)} style={{ width: colW, height: diagH }} />}
+                    </View>
+                  );
+                })}
+              </View>
             </View>
           ))}
         </View>

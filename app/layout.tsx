@@ -9,8 +9,8 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "Chord Sheet PDF",
-  description: "Generate printable PDF chord sheets with diagrams",
+  title: "Sointukortti PDF",
+  description: "Luo tulostettavia PDF-sointukortteja kaavioiden kera",
 };
 
 export default function RootLayout({

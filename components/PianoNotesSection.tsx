@@ -44,6 +44,23 @@ function toShareable(item: SeqItem): PianoSeqItem {
   return { kind: "linebreak" };
 }
 
+// ── Note transposition ────────────────────────────────────────────────────────
+
+const CHROMATIC_NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"] as const;
+const FLAT_NORM: Record<string, string> = { Db: "C#", Eb: "D#", Gb: "F#", Ab: "G#", Bb: "A#", Cb: "B" };
+
+function transposeNote(letter: string, octave: number, semitones: number): { letter: string; octave: number } {
+  if (semitones === 0) return { letter, octave };
+  const normalized = FLAT_NORM[letter] ?? letter;
+  const idx = CHROMATIC_NOTES.indexOf(normalized as (typeof CHROMATIC_NOTES)[number]);
+  if (idx === -1) return { letter, octave };
+  const rawNew = idx + semitones;
+  return {
+    letter: CHROMATIC_NOTES[((rawNew % 12) + 12) % 12],
+    octave: octave + Math.floor(rawNew / 12),
+  };
+}
+
 // ── Piano keyboard constants ──────────────────────────────────────────────────
 
 const WHITE_KEYS = ["C", "D", "E", "F", "G", "A", "B"] as const;
@@ -151,7 +168,7 @@ function NoteDisplay({
     >
       <button
         onClick={(e) => { e.stopPropagation(); onRemove(); }}
-        aria-label={`Remove ${item.letter}${item.octave}`}
+        aria-label={`Poista ${item.letter}${item.octave}`}
         className="absolute -top-1 -right-1 w-4 h-4 bg-gray-200 hover:bg-red-100 rounded-full text-gray-500 hover:text-red-500 text-xs hidden group-hover:flex items-center justify-center leading-none z-10"
       >
         ×
@@ -169,7 +186,7 @@ function BarlineDisplay({ onRemove }: { onRemove: () => void }) {
     <div className="relative group flex items-center self-stretch py-1">
       <button
         onClick={onRemove}
-        aria-label="Remove bar line"
+        aria-label="Poista tahtiviiva"
         className="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-4 bg-gray-200 hover:bg-red-100 rounded-full text-gray-500 hover:text-red-500 text-xs hidden group-hover:flex items-center justify-center leading-none z-10"
       >
         ×
@@ -184,7 +201,7 @@ function RepeatDisplay({ item, onRemove }: { item: RepeatItem; onRemove: () => v
     <div className="relative group flex items-center">
       <button
         onClick={onRemove}
-        aria-label="Remove repeat"
+        aria-label="Poista toisto"
         className="absolute -top-1 -right-1 w-4 h-4 bg-gray-200 hover:bg-red-100 rounded-full text-gray-500 hover:text-red-500 text-xs hidden group-hover:flex items-center justify-center leading-none z-10"
       >
         ×
@@ -201,19 +218,19 @@ function LineBreakMarker({ onRemove }: { onRemove: () => void }) {
     <div className="relative group flex items-center ml-1">
       <button
         onClick={onRemove}
-        aria-label="Remove line break"
+        aria-label="Poista rivinvaihto"
         className="absolute -top-1 -right-1 w-4 h-4 bg-gray-200 hover:bg-red-100 rounded-full text-gray-500 hover:text-red-500 text-xs hidden group-hover:flex items-center justify-center leading-none z-10"
       >
         ×
       </button>
-      <span className="text-gray-300 text-xl select-none" title="Line break (hover to remove)">↵</span>
+      <span className="text-gray-300 text-xl select-none" title="Rivinvaihto (vie hiiri päälle poistaaksesi)">↵</span>
     </div>
   );
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function PianoNotesSection({ onNotesChange }: { onNotesChange?: (notes: PianoSeqItem[]) => void } = {}) {
+export function PianoNotesSection({ onNotesChange, transpose = 0 }: { onNotesChange?: (notes: PianoSeqItem[]) => void; transpose?: number } = {}) {
   const [items, setItems]             = useState<SeqItem[]>([]);
   const [repeatCount, setRepeatCount] = useState(2);
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
@@ -322,8 +339,8 @@ export function PianoNotesSection({ onNotesChange }: { onNotesChange?: (notes: P
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-bold text-gray-900">Piano Note Sequence</h3>
-          <p className="text-sm text-gray-500">Build a melody with kuvionuotti (figurenotes)</p>
+          <h3 className="text-lg font-bold text-gray-900">Kuvionuottisarja</h3>
+          <p className="text-sm text-gray-500">Rakenna melodia kuvionuoteilla</p>
         </div>
         <div className="flex items-center gap-3">
           {history.length > 0 && (
@@ -331,7 +348,7 @@ export function PianoNotesSection({ onNotesChange }: { onNotesChange?: (notes: P
               onClick={undo}
               className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
             >
-              ↩ Undo
+              ↩ Kumoa
             </button>
           )}
           {items.length > 0 && (
@@ -339,7 +356,7 @@ export function PianoNotesSection({ onNotesChange }: { onNotesChange?: (notes: P
               onClick={() => { snapshot(); setItems([]); setSelectedUid(null); }}
               className="text-sm text-red-400 hover:text-red-600 transition-colors"
             >
-              Clear all
+              Tyhjennä kaikki
             </button>
           )}
         </div>
@@ -352,10 +369,10 @@ export function PianoNotesSection({ onNotesChange }: { onNotesChange?: (notes: P
             previewMode ? "text-amber-500" : isReplacing ? "text-blue-500" : "text-gray-400"
           }`}>
             {previewMode
-              ? "Preview mode — notes won't be recorded"
+              ? "Esikatselutila — nuotteja ei tallenneta"
               : isReplacing
-              ? "Click a key to replace the selected note"
-              : "Click keys to add notes"}
+              ? "Napsauta kosketinta korvataksesi valitun nuotin"
+              : "Napsauta koskettimia lisätäksesi nuotteja"}
           </p>
           <button
             onClick={() => setPreviewMode((p) => !p)}
@@ -365,14 +382,14 @@ export function PianoNotesSection({ onNotesChange }: { onNotesChange?: (notes: P
                 : "bg-gray-50 text-gray-400 border-gray-200 hover:border-gray-300"
             }`}
           >
-            {previewMode ? "Preview on" : "Preview off"}
+            {previewMode ? "Esikatselu päällä" : "Esikatselu pois"}
           </button>
         </div>
         <div className="overflow-x-auto">
           <div style={{ width: totalKeyboardW }} className="flex mb-1">
             {KEYBOARD_OCTAVES.map((oct) => (
               <div key={oct} style={{ width: OCTAVE_W }} className="text-xs text-gray-400 font-semibold pl-1">
-                Octave {oct}
+                Oktaavi {oct}
               </div>
             ))}
           </div>
@@ -425,14 +442,14 @@ export function PianoNotesSection({ onNotesChange }: { onNotesChange?: (notes: P
 
       {/* Insert toolbar */}
       <div className="flex items-center gap-3 flex-wrap">
-        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Insert:</span>
+        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Lisää:</span>
 
         <button
           onClick={() => insertAfterSelected({ kind: "barline", uid: uid() })}
           className="flex items-center gap-1.5 text-sm text-gray-600 border border-gray-300 hover:bg-gray-50 rounded-lg px-3 py-1.5 transition-colors"
         >
           <span className="font-bold text-gray-400 text-base leading-none">|</span>
-          Bar line
+          Tahtiviiva
         </button>
 
         <div className="flex items-center gap-1.5 border border-gray-300 rounded-lg px-3 py-1.5">
@@ -448,7 +465,7 @@ export function PianoNotesSection({ onNotesChange }: { onNotesChange?: (notes: P
             onClick={() => insertAfterSelected({ kind: "repeat", count: repeatCount, uid: uid() })}
             className="text-sm text-gray-600 hover:text-gray-900 font-medium transition-colors"
           >
-            Repeat
+            Toisto
           </button>
         </div>
 
@@ -456,24 +473,32 @@ export function PianoNotesSection({ onNotesChange }: { onNotesChange?: (notes: P
           onClick={addLineBreak}
           className="flex items-center gap-1.5 text-sm text-gray-600 border border-gray-300 hover:bg-gray-50 rounded-lg px-3 py-1.5 transition-colors"
         >
-          ↵ New line
+          ↵ Uusi rivi
         </button>
       </div>
 
       {/* Sequence display */}
       {items.length > 0 ? (
         <div className="space-y-3">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-            Sequence ({noteCount} {noteCount === 1 ? "note" : "notes"})
-          </p>
+          <div className="flex items-center gap-3">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+              Sarja ({noteCount} {noteCount === 1 ? "nuotti" : "nuottia"})
+            </p>
+            {transpose !== 0 && (
+              <span className="text-xs font-semibold text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full">
+                Transponoitu {transpose > 0 ? "+" : ""}{transpose}
+              </span>
+            )}
+          </div>
           {rows.map((row, rowIdx) => (
             <div key={rowIdx} className="flex flex-wrap items-center gap-3 min-h-16 border-b border-gray-100 pb-3 last:border-0 last:pb-0">
               {row.items.map((item) => {
                 if (item.kind === "note") {
+                  const displayed = transposeNote(item.letter, item.octave, transpose);
                   return (
                     <NoteDisplay
                       key={item.uid}
-                      item={item}
+                      item={{ ...item, ...displayed }}
                       selected={selectedUid === item.uid}
                       onToggleSelect={() =>
                         setSelectedUid((prev) => (prev === item.uid ? null : item.uid))
@@ -504,7 +529,7 @@ export function PianoNotesSection({ onNotesChange }: { onNotesChange?: (notes: P
         </div>
       ) : (
         <div className="text-center py-6 text-gray-400 text-sm border-2 border-dashed border-gray-200 rounded-lg">
-          Click any piano key to start adding notes
+          Napsauta mitä tahansa koskettimia aloittaaksesi nuottien lisäämisen
         </div>
       )}
     </div>

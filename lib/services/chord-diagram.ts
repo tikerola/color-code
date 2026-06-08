@@ -7,8 +7,8 @@ const FRET_ROWS = 5;
 
 function guitarSvg(chord: string, pos: ChordPosition): string {
   const strings = 6;
-  const w = 110, h = 130;
-  const padLeft = 22, padTop = 28, padRight = 10;
+  const w = 110, h = 116;
+  const padLeft = 22, padTop = 14, padRight = 10;
   const colW = (w - padLeft - padRight) / (strings - 1);
   const rowH = (h - padTop - 12) / FRET_ROWS;
   const baseFret = pos.baseFret ?? 1;
@@ -16,7 +16,6 @@ function guitarSvg(chord: string, pos: ChordPosition): string {
   const displayBase = pos.frets.some((f) => f > FRET_ROWS) ? minFret : 1;
 
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">`;
-  svg += `<text x="${w / 2}" y="14" text-anchor="middle" font-size="12" font-weight="bold" font-family="Helvetica">${escapeXml(chord)}</text>`;
 
   // Nut or base fret indicator
   if (displayBase === 1) {
@@ -73,15 +72,14 @@ function guitarSvg(chord: string, pos: ChordPosition): string {
 
 function ukuleleSvg(chord: string, pos: ChordPosition): string {
   const strings = 4;
-  const w = 80, h = 130;
-  const padLeft = 18, padTop = 28, padRight = 10;
+  const w = 80, h = 116;
+  const padLeft = 18, padTop = 14, padRight = 10;
   const colW = (w - padLeft - padRight) / (strings - 1);
   const rowH = (h - padTop - 12) / FRET_ROWS;
   const minFret = Math.min(...pos.frets.filter((f) => f > 0));
   const displayBase = pos.frets.some((f) => f > FRET_ROWS) ? minFret : 1;
 
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">`;
-  svg += `<text x="${w / 2}" y="14" text-anchor="middle" font-size="11" font-weight="bold" font-family="Helvetica">${escapeXml(chord)}</text>`;
 
   if (displayBase === 1) {
     svg += `<rect x="${padLeft}" y="${padTop}" width="${(strings - 1) * colW}" height="4" fill="black"/>`;
@@ -155,14 +153,13 @@ function pianoSvg(chord: string): string {
   // Width sized so the edge F# black key fits without clipping
   const wkW = 10.5;
   const w = Math.ceil(pad + TOTAL * wkW + wkW * 0.6 / 2 + pad); // extra room for trailing black key
-  const h = 102;
-  const wkH = h - 22;
+  const keyTop = 4;
+  const wkH = 80;
+  const h = keyTop + wkH + 4;
   const bkW = wkW * 0.6;
   const bkH = wkH * 0.58;
-  const keyTop = 18;
 
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">`;
-  svg += `<text x="${w / 2}" y="13" text-anchor="middle" font-size="11" font-weight="bold" font-family="Helvetica">${escapeXml(chord)}</text>`;
 
   // ── Bass octave: all 7 white keys (C–B) ──
   for (let i = 0; i < 7; i++) {

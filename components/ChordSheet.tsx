@@ -1,22 +1,24 @@
 "use client";
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import type { PreviewResponse } from "../lib/types";
 import { applyTransposition } from "../lib/services/transpose";
 
 interface Props {
   data: PreviewResponse;
+  transpose: number;
+  onTransposeChange: (n: number) => void;
   onDownload?: (transpose: number) => void;
   downloading?: boolean;
 }
 
 const INSTRUMENTS = [
-  { key: "guitar",  label: "Guitar"  },
+  { key: "guitar",  label: "Kitara"  },
   { key: "ukulele", label: "Ukulele" },
   { key: "piano",   label: "Piano"   },
 ] as const;
 
-export function ChordSheet({ data, onDownload, downloading }: Props) {
-  const [transpose, setTranspose] = useState(0);
+export function ChordSheet({ data, transpose, onTransposeChange, onDownload, downloading }: Props) {
+  const setTranspose = onTransposeChange;
 
   const { song, progression, chords, diagrams } = useMemo(
     () => applyTransposition(data, transpose),
@@ -26,8 +28,7 @@ export function ChordSheet({ data, onDownload, downloading }: Props) {
   const chordMap = new Map(chords.map((c) => [c.name, c]));
   const n = progression.sequence.length;
 
-  const transposeLabel =
-    transpose === 0 ? "Original" : `${transpose > 0 ? "+" : ""}${transpose}`;
+  const transposeLabel = `${transpose > 0 ? "+" : ""}${transpose}`;
 
   return (
     <div className="w-full max-w-5xl mx-auto bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -35,6 +36,7 @@ export function ChordSheet({ data, onDownload, downloading }: Props) {
       <div className="p-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">{song.title}</h2>
+          {song.subtitle && <p className="text-base text-gray-500 mt-0.5">{song.subtitle}</p>}
           <p className="text-gray-500 mt-0.5">{song.artist}</p>
           <p className="text-xs text-gray-400 mt-1 truncate max-w-md">{song.url}</p>
         </div>
@@ -43,12 +45,12 @@ export function ChordSheet({ data, onDownload, downloading }: Props) {
           {/* Transpose control */}
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-              Transpose
+              Transponointi
             </span>
             <button
-              onClick={() => setTranspose((t) => Math.max(-11, t - 1))}
+              onClick={() => setTranspose(Math.max(-11, transpose - 1))}
               className="w-7 h-7 rounded-full border border-gray-300 hover:bg-gray-100 text-gray-600 font-bold flex items-center justify-center transition-colors"
-              aria-label="Transpose down"
+              aria-label="Transponoi alas"
             >
               −
             </button>
@@ -56,20 +58,12 @@ export function ChordSheet({ data, onDownload, downloading }: Props) {
               {transposeLabel}
             </span>
             <button
-              onClick={() => setTranspose((t) => Math.min(11, t + 1))}
+              onClick={() => setTranspose(Math.min(11, transpose + 1))}
               className="w-7 h-7 rounded-full border border-gray-300 hover:bg-gray-100 text-gray-600 font-bold flex items-center justify-center transition-colors"
-              aria-label="Transpose up"
+              aria-label="Transponoi ylös"
             >
               +
             </button>
-            {transpose !== 0 && (
-              <button
-                onClick={() => setTranspose(0)}
-                className="text-xs text-blue-500 hover:text-blue-700 transition-colors"
-              >
-                Reset
-              </button>
-            )}
           </div>
 
           {/* Download */}
@@ -79,7 +73,7 @@ export function ChordSheet({ data, onDownload, downloading }: Props) {
               disabled={downloading}
               className="shrink-0 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors"
             >
-              {downloading ? <><Spinner /> Generating PDF…</> : <><DownloadIcon /> Download PDF</>}
+              {downloading ? <><Spinner /> Luodaan PDF…</> : <><DownloadIcon /> Lataa PDF</>}
             </button>
           )}
         </div>
@@ -93,7 +87,7 @@ export function ChordSheet({ data, onDownload, downloading }: Props) {
         >
           {/* Progression row */}
           <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide self-center">
-            Progression
+            Sointukierto
             {progression.repeatCount > 1 && (
               <span className="block font-normal normal-case text-gray-300">
                 ×{progression.repeatCount}
