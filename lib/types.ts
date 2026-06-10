@@ -20,6 +20,7 @@ export interface ChordDiagram {
   chord: string;
   instrument: "guitar" | "ukulele" | "piano" | "bass";
   svg: string;
+  sequenceIndex?: number;
 }
 
 export enum Instrument {

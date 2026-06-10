@@ -201,10 +201,12 @@ function PdfDocument({ song, progression, chords, diagrams, pianoNotes, activeIn
                 <Text style={styles.sectionHeaderText}>{label}</Text>
               </View>
               <View style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 2, gap: COL_GAP }}>
-                {progression.sequence.map((name) => {
-                  const d = diagrams.find((d) => d.chord === name && d.instrument === key);
+                {progression.sequence.map((name, seqIdx) => {
+                  const d = key === "piano"
+                    ? diagrams.find((d) => d.instrument === "piano" && d.sequenceIndex === seqIdx)
+                    : diagrams.find((d) => d.chord === name && d.instrument === key);
                   return (
-                    <View key={name} style={{ width: colW, alignItems: "center" }}>
+                    <View key={seqIdx} style={{ width: colW, alignItems: "center" }}>
                       {d && <Image src={svgToDataUri(d.svg)} style={{ width: colW, height: diagH }} />}
                     </View>
                   );

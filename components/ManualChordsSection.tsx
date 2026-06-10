@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { ChordSheet } from "./ChordSheet";
 import { getChordColor } from "../lib/services/chord-colors";
-import { getChordDiagram } from "../lib/services/chord-diagram";
+import { getChordDiagram, buildPianoSequenceDiagrams } from "../lib/services/chord-diagram";
 import { applyTransposition, transposePianoNotes } from "../lib/services/transpose";
 import { generatePdfBlob } from "../lib/services/pdf-generator";
 import type { PreviewResponse, PianoSeqItem } from "../lib/types";
@@ -27,7 +27,7 @@ function buildChordData(title: string, subtitle: string, chords: string[]): Prev
     diagrams: [
       ...unique.map((name) => getChordDiagram(name, "guitar")),
       ...unique.map((name) => getChordDiagram(name, "ukulele")),
-      ...unique.map((name) => getChordDiagram(name, "piano")),
+      ...buildPianoSequenceDiagrams(chords),
       ...unique.map((name) => getChordDiagram(name, "bass")),
     ],
   };

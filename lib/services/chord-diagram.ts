@@ -137,22 +137,65 @@ const OCTAVE_SHARP = ["C#", "D#", "", "F#", "G#", "A#", ""] as const;
 // Treble half: show C D E F (4 keys) — covers all triad 5ths that wrap around
 const TREBLE_COUNT = 4;
 
-function pianoSvg(chord: string): string {
+// Compute root-position MIDI notes for a chord, optionally voice-led toward prevMidi.
+// Root octave is chosen (from 3, 4, 5) to minimise total semitone distance to prevMidi.
+function getVoicedMidi(chord: string, prevMidi?: number[]): number[] {
   const allNotes = chordToNotes(chord);
-  const root     = normalizeNote(parseRoot(chord));
+  const root = normalizeNote(parseRoot(chord));
   const rootSemi = NOTE_ORDER.indexOf(root);
+  if (rootSemi === -1 || allNotes.length === 0) return [];
 
-  // Partition: notes >= root stay in bass octave; notes < root wrapped into treble.
-  // F chord (root=5): A(9)≥5 → bass; C(0)<5 → treble.
-  const bassNotes   = new Set(allNotes.filter((n) => NOTE_ORDER.indexOf(n) >= rootSemi));
-  const trebleNotes = new Set(allNotes.filter((n) => NOTE_ORDER.indexOf(n) < rootSemi));
+  // MIDI for root in scientific octave N: C_N = 12*(N+1), root = C_N + rootSemi
+  const rootMidiForOctave = (oct: number) => 12 * (oct + 1) + rootSemi;
+  const notesToMidi = (rootMidi: number) =>
+    allNotes.map((n) => rootMidi + (NOTE_ORDER.indexOf(n) - rootSemi + 12) % 12);
 
-  // Total white keys: 7 (full bass octave) + TREBLE_COUNT (half treble) = 11
+  if (!prevMidi || prevMidi.length === 0) {
+    return notesToMidi(rootMidiForOctave(4));
+  }
+
+  let bestMidi: number[] = [];
+  let bestDist = Infinity;
+  const sortedPrev = [...prevMidi].sort((a, b) => a - b);
+
+  for (const oct of [3, 4, 5]) {
+    const candidate = notesToMidi(rootMidiForOctave(oct));
+    const sorted = [...candidate].sort((a, b) => a - b);
+    const n = Math.max(sorted.length, sortedPrev.length);
+    let dist = 0;
+    for (let i = 0; i < n; i++) {
+      dist += Math.abs(
+        sorted[Math.min(i, sorted.length - 1)] - sortedPrev[Math.min(i, sortedPrev.length - 1)]
+      );
+    }
+    if (dist < bestDist) { bestDist = dist; bestMidi = candidate; }
+  }
+  return bestMidi;
+}
+
+function pianoSvgFromMidi(midiNotes: number[]): string {
+  if (midiNotes.length === 0) {
+    const w = 122, h = 88;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"/>`;
+  }
+
+  const rootMidi = Math.min(...midiNotes);
+  // MIDI tier: floor(60/12)=5 → scientific octave 4 (C4=60). So octave = tier-1.
+  const rootTier   = Math.floor(rootMidi / 12);
+  const bassOctave = rootTier - 1;
+
+  const bassNotes   = new Set<string>();
+  const trebleNotes = new Set<string>();
+  for (const m of midiNotes) {
+    const name = NOTE_ORDER[m % 12];
+    if (Math.floor(m / 12) === rootTier) bassNotes.add(name);
+    else                                  trebleNotes.add(name);
+  }
+
   const TOTAL = 7 + TREBLE_COUNT;
   const pad = 2;
-  // Width sized so the edge F# black key fits without clipping
   const wkW = 10.5;
-  const w = Math.ceil(pad + TOTAL * wkW + wkW * 0.6 / 2 + pad); // extra room for trailing black key
+  const w = Math.ceil(pad + TOTAL * wkW + wkW * 0.6 / 2 + pad);
   const keyTop = 4;
   const wkH = 80;
   const h = keyTop + wkH + 4;
@@ -161,60 +204,70 @@ function pianoSvg(chord: string): string {
 
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">`;
 
-  // ── Bass octave: all 7 white keys (C–B) ──
+  // Bass octave: 7 white keys (C–B)
   for (let i = 0; i < 7; i++) {
     const x = pad + i * wkW;
     svg += `<rect x="${x + 0.5}" y="${keyTop}" width="${wkW - 1}" height="${wkH}" fill="white" stroke="#bbb" stroke-width="0.8" rx="1"/>`;
-    if (bassNotes.has(OCTAVE_WHITE[i])) {
-      svg += kuvionuottiSvg(x + wkW / 2, keyTop + wkH - 7, wkW * 0.36, OCTAVE_WHITE[i]);
-    }
+    if (bassNotes.has(OCTAVE_WHITE[i]))
+      svg += kuvionuottiSvg(x + wkW / 2, keyTop + wkH - 7, wkW * 0.36, OCTAVE_WHITE[i], bassOctave);
   }
 
-  // ── Treble half: first TREBLE_COUNT white keys (C D E F) ──
+  // Treble half: first TREBLE_COUNT white keys (C D E F)
   for (let i = 0; i < TREBLE_COUNT; i++) {
     const x = pad + (7 + i) * wkW;
     svg += `<rect x="${x + 0.5}" y="${keyTop}" width="${wkW - 1}" height="${wkH}" fill="white" stroke="#bbb" stroke-width="0.8" rx="1"/>`;
-    if (trebleNotes.has(OCTAVE_WHITE[i])) {
-      svg += kuvionuottiSvg(x + wkW / 2, keyTop + wkH - 7, wkW * 0.36, OCTAVE_WHITE[i], true);
-    }
+    if (trebleNotes.has(OCTAVE_WHITE[i]))
+      svg += kuvionuottiSvg(x + wkW / 2, keyTop + wkH - 7, wkW * 0.36, OCTAVE_WHITE[i], bassOctave + 1);
   }
 
   // Octave divider
   const divX = pad + 7 * wkW;
   svg += `<line x1="${divX}" y1="${keyTop}" x2="${divX}" y2="${keyTop + wkH}" stroke="#999" stroke-width="1.5"/>`;
 
-  // ── Bass octave black keys ──
+  // Bass black keys
   for (let i = 0; i < 7; i++) {
     const sharp = OCTAVE_SHARP[i];
     if (!sharp) continue;
     const x = pad + i * wkW + wkW - bkW / 2;
     svg += `<rect x="${x}" y="${keyTop}" width="${bkW}" height="${bkH}" fill="#222" stroke="#111" stroke-width="0.5" rx="1"/>`;
-    if (bassNotes.has(sharp)) {
-      svg += kuvionuottiSvg(x + bkW / 2, keyTop + bkH - 5, bkW * 0.36, sharp);
-    }
+    if (bassNotes.has(sharp))
+      svg += kuvionuottiSvg(x + bkW / 2, keyTop + bkH - 5, bkW * 0.36, sharp, bassOctave);
   }
 
-  // ── Treble black keys (only within TREBLE_COUNT range) ──
+  // Treble black keys (within TREBLE_COUNT range)
   for (let i = 0; i < TREBLE_COUNT; i++) {
     const sharp = OCTAVE_SHARP[i];
     if (!sharp) continue;
     const x = pad + (7 + i) * wkW + wkW - bkW / 2;
     svg += `<rect x="${x}" y="${keyTop}" width="${bkW}" height="${bkH}" fill="#222" stroke="#111" stroke-width="0.5" rx="1"/>`;
-    if (trebleNotes.has(sharp)) {
-      svg += kuvionuottiSvg(x + bkW / 2, keyTop + bkH - 5, bkW * 0.36, sharp, true);
-    }
+    if (trebleNotes.has(sharp))
+      svg += kuvionuottiSvg(x + bkW / 2, keyTop + bkH - 5, bkW * 0.36, sharp, bassOctave + 1);
   }
 
   svg += `</svg>`;
   return svg;
 }
 
-// Shape encodes the octave (official kuvionuotti): lower octave = circle, upper octave = triangle up.
+// Build voice-led piano diagrams for a whole sequence (each chord references the previous).
+export function buildPianoSequenceDiagrams(sequence: string[]): ChordDiagram[] {
+  const result: ChordDiagram[] = [];
+  let prevMidi: number[] | undefined;
+  for (let i = 0; i < sequence.length; i++) {
+    const midi = getVoicedMidi(sequence[i], prevMidi);
+    result.push({ chord: sequence[i], instrument: "piano", svg: pianoSvgFromMidi(midi), sequenceIndex: i });
+    prevMidi = midi;
+  }
+  return result;
+}
+
+// Shape encodes the octave (official kuvionuotti): square=3, circle=4, triangle=5.
 // Color encodes the note letter.
-function kuvionuottiSvg(cx: number, cy: number, r: number, note: string, treble = false): string {
+function kuvionuottiSvg(cx: number, cy: number, r: number, note: string, octave: number): string {
   const color = getNoteColor(note);
   const s = `stroke="white" stroke-width="0.8"`;
-  if (treble) {
+  if (octave <= 3) {
+    return `<rect x="${cx - r}" y="${cy - r}" width="${2 * r}" height="${2 * r}" fill="${color}" ${s} rx="${r * 0.2}"/>`;
+  } else if (octave >= 5) {
     return `<polygon points="${cx},${cy - r} ${cx + r * 1.2},${cy + r} ${cx - r * 1.2},${cy + r}" fill="${color}" ${s}/>`;
   }
   return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}" ${s}/>`;
@@ -354,7 +407,7 @@ export function getChordDiagram(chordName: string, instrument: "guitar" | "ukule
   let svg: string;
 
   if (instrument === "piano") {
-    svg = pianoSvg(chordName);
+    svg = pianoSvgFromMidi(getVoicedMidi(chordName));
   } else if (instrument === "guitar") {
     const pos = findChordPos(GUITAR_CHORDS, chordName) ?? fallbackGuitarChord(chordName);
     svg = guitarSvg(chordName, pos);

@@ -1,6 +1,6 @@
 import type { Chord, ChordDiagram, PreviewResponse, PianoSeqItem } from "../types";
 import { getChordColor } from "./chord-colors";
-import { getChordDiagram } from "./chord-diagram";
+import { getChordDiagram, buildPianoSequenceDiagrams } from "./chord-diagram";
 
 const CHROMATIC = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"] as const;
 const FLAT_NORMALIZE: Record<string, string> = {
@@ -47,12 +47,13 @@ export function applyTransposition(data: PreviewResponse, semitones: number): Pr
     color: getChordColor(name),
   }));
 
-  const diagrams: ChordDiagram[] = [];
-  for (const chord of newSequence) {
-    for (const instrument of ["guitar", "ukulele", "piano", "bass"] as const) {
-      diagrams.push(getChordDiagram(chord, instrument));
-    }
-  }
+  const uniqueChords = [...new Set(newSequence)];
+  const diagrams: ChordDiagram[] = [
+    ...uniqueChords.map((c) => getChordDiagram(c, "guitar")),
+    ...uniqueChords.map((c) => getChordDiagram(c, "ukulele")),
+    ...buildPianoSequenceDiagrams(newSequence),
+    ...uniqueChords.map((c) => getChordDiagram(c, "bass")),
+  ];
 
   return {
     song: data.song,

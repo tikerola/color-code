@@ -138,7 +138,9 @@ export function ChordSheet({ data, transpose, onTransposeChange, activeInstrumen
                 {label}
               </div>
               {progression.sequence.map((name, i) => {
-                const d = diagrams.find((d) => d.chord === name && d.instrument === key);
+                const d = key === "piano"
+                  ? diagrams.find((d) => d.instrument === "piano" && d.sequenceIndex === i)
+                  : diagrams.find((d) => d.chord === name && d.instrument === key);
                 return (
                   <div
                     key={i}
